@@ -1,0 +1,240 @@
+using System;
+using System.Collections.Generic;
+
+namespace RomesteadSaveInspector.WinUI;
+
+public static class Localization
+{
+    private static readonly Dictionary<string, Dictionary<string, string>> Languages = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["zh-Hans"] = new()
+        {
+            ["app.title"] = "Romestead 存档检查器 - WinUI 3",
+            ["app.subtitle"] = "识别存档、修改玩家物品堆叠数量、保存前备份，并把保存后的文件复制到 output。",
+            ["language"] = "语言",
+            ["information"] = "信息",
+            ["info.version"] = "版本",
+            ["info.date"] = "日期",
+            ["info.game.version"] = "适配游戏版本",
+            ["info.author"] = "作者",
+            ["step1.title"] = "步骤 1：准备依赖 DLL",
+            ["step1.desc"] = "手动把 Romestead 游戏目录里的 *.dll 放到本工具的 lib 文件夹。",
+            ["open.lib"] = "打开 lib 文件夹",
+            ["step2.title"] = "步骤 2：放入存档文件",
+            ["step2.desc"] = "把 game_state、world_desc 和 用户名.char 放到 input 文件夹。也可以先打开游戏存档目录后手动复制。",
+            ["open.profiles"] = "打开游戏存档目录",
+            ["open.input"] = "打开 input 文件夹",
+            ["step3.title"] = "步骤 3：识别与保存",
+            ["username"] = "用户名",
+            ["username.placeholder"] = "输入用户名，不含 .char",
+            ["check.files"] = "检查文件",
+            ["inspect"] = "识别",
+            ["save.items"] = "保存玩家物品",
+            ["status"] = "状态",
+            ["ready"] = "准备就绪。",
+            ["world.info"] = "世界信息",
+            ["player.totals"] = "玩家物品汇总",
+            ["player.items"] = "玩家物品（可修改 StackCount）",
+            ["section"] = "区域",
+            ["slot"] = "格",
+            ["item.id"] = "物品 ID",
+            ["count"] = "数量",
+            ["debug.log"] = "调试日志（默认显示）",
+            ["help.close"] = "知道了",
+            ["help.dll.title"] = "准备依赖 DLL",
+            ["help.dll.text"] = "手动把 Romestead 游戏目录里的 *.dll 复制到 lib 文件夹。至少需要 CandideServer.dll、Shared.dll、CandideCreator.Shared.dll、MonoGame.Framework.dll。为了避免缺依赖，推荐复制游戏目录根部所有 DLL。工具只会读取这些 DLL，不会修改它们。",
+            ["help.files.title"] = "放入存档文件",
+            ["help.files.text"] = "把存档目录里的 game_state、world_desc 和玩家 .char 文件复制到 input 文件夹。识别玩家背包主要依赖 .char 文件。",
+            ["help.workflow.title"] = "识别与保存",
+            ["help.workflow.text"] = "先点击“识别”。识别成功后可以在玩家物品表里修改 StackCount。点击“保存玩家物品”前，工具会先备份 input 里的全部 .char 文件到 backup，然后把修改后的 .char 覆盖回 input，并复制一份到 output。",
+            ["check.ok.title"] = "检查通过",
+            ["check.ok.msg"] = "关键 DLL 和存档文件都已找到。",
+            ["check.missing.title"] = "缺少文件",
+            ["inspect.running.title"] = "识别中",
+            ["inspect.running.msg"] = "正在读取 input 中的存档文件，请稍候。",
+            ["inspect.failed.title"] = "识别失败",
+            ["inspect.failed.msg"] = "识别过程返回错误。请查看底部日志或 logs/latest.log。",
+            ["inspect.none.title"] = "识别完成，但未找到玩家物品",
+            ["inspect.none.msg"] = "请确认 input 中包含正确的 .char 文件，用户名是否匹配。",
+            ["inspect.done.title"] = "识别完成",
+            ["inspect.done.msg"] = "找到 {0} 条玩家物品记录。",
+            ["save.invalid.title"] = "保存失败",
+            ["save.invalid.msg"] = "存在非法数量。StackCount 必须是非负整数。",
+            ["save.nochange.title"] = "无需保存",
+            ["save.nochange.msg"] = "没有检测到 StackCount 变化。",
+            ["save.running.title"] = "保存中",
+            ["save.running.msg"] = "正在备份 .char 并写回修改后的玩家文件。",
+            ["save.incomplete.title"] = "保存未完成",
+            ["save.done.title"] = "保存完成",
+            ["summary.files"] = "扫描文件数",
+            ["summary.states"] = "世界状态文件数",
+            ["summary.playersaves"] = "玩家存档数",
+            ["summary.player"] = "玩家",
+        },
+        ["zh-Hant"] = new()
+        {
+            ["app.title"] = "Romestead 存檔檢查器 - WinUI 3",
+            ["app.subtitle"] = "識別存檔、修改玩家物品堆疊數量、儲存前備份，並把儲存後的檔案複製到 output。",
+            ["language"] = "語言",
+            ["information"] = "資訊",
+            ["info.version"] = "版本",
+            ["info.date"] = "日期",
+            ["info.game.version"] = "適配遊戲版本",
+            ["info.author"] = "作者",
+            ["step1.title"] = "步驟 1：準備依賴 DLL",
+            ["step1.desc"] = "手動把 Romestead 遊戲目錄裡的 *.dll 放到本工具的 lib 資料夾。",
+            ["open.lib"] = "開啟 lib 資料夾",
+            ["step2.title"] = "步驟 2：放入存檔檔案",
+            ["step2.desc"] = "把 game_state、world_desc 和 使用者名稱.char 放到 input 資料夾。也可以先開啟遊戲存檔目錄後手動複製。",
+            ["open.profiles"] = "開啟遊戲存檔目錄",
+            ["open.input"] = "開啟 input 資料夾",
+            ["step3.title"] = "步驟 3：識別與儲存",
+            ["username"] = "使用者名稱",
+            ["username.placeholder"] = "輸入使用者名稱，不含 .char",
+            ["check.files"] = "檢查檔案",
+            ["inspect"] = "識別",
+            ["save.items"] = "儲存玩家物品",
+            ["status"] = "狀態",
+            ["ready"] = "準備就緒。",
+            ["world.info"] = "世界資訊",
+            ["player.totals"] = "玩家物品彙總",
+            ["player.items"] = "玩家物品（可修改 StackCount）",
+            ["section"] = "區域",
+            ["slot"] = "格位",
+            ["item.id"] = "物品 ID",
+            ["count"] = "數量",
+            ["debug.log"] = "除錯日誌（預設顯示）",
+            ["help.close"] = "知道了",
+            ["help.dll.title"] = "準備依賴 DLL",
+            ["help.dll.text"] = "手動把 Romestead 遊戲目錄裡的 *.dll 複製到 lib 資料夾。至少需要 CandideServer.dll、Shared.dll、CandideCreator.Shared.dll、MonoGame.Framework.dll。為避免缺少依賴，建議複製遊戲目錄根部所有 DLL。工具只會讀取這些 DLL，不會修改它們。",
+            ["help.files.title"] = "放入存檔檔案",
+            ["help.files.text"] = "把存檔目錄裡的 game_state、world_desc 和玩家 .char 檔案複製到 input 資料夾。識別玩家背包主要依賴 .char 檔案。",
+            ["help.workflow.title"] = "識別與儲存",
+            ["help.workflow.text"] = "先點擊「識別」。識別成功後可以在玩家物品表中修改 StackCount。點擊「儲存玩家物品」前，工具會先把 input 裡全部 .char 檔案備份到 backup，然後把修改後的 .char 覆蓋回 input，並複製一份到 output。",
+            ["check.ok.title"] = "檢查通過",
+            ["check.ok.msg"] = "關鍵 DLL 和存檔檔案都已找到。",
+            ["check.missing.title"] = "缺少檔案",
+            ["inspect.running.title"] = "識別中",
+            ["inspect.running.msg"] = "正在讀取 input 中的存檔檔案，請稍候。",
+            ["inspect.failed.title"] = "識別失敗",
+            ["inspect.failed.msg"] = "識別過程返回錯誤。請查看底部日誌或 logs/latest.log。",
+            ["inspect.none.title"] = "識別完成，但未找到玩家物品",
+            ["inspect.none.msg"] = "請確認 input 中包含正確的 .char 檔案，使用者名稱是否匹配。",
+            ["inspect.done.title"] = "識別完成",
+            ["inspect.done.msg"] = "找到 {0} 條玩家物品記錄。",
+            ["save.invalid.title"] = "儲存失敗",
+            ["save.invalid.msg"] = "存在非法數量。StackCount 必須是非負整數。",
+            ["save.nochange.title"] = "無需儲存",
+            ["save.nochange.msg"] = "沒有偵測到 StackCount 變化。",
+            ["save.running.title"] = "儲存中",
+            ["save.running.msg"] = "正在備份 .char 並寫回修改後的玩家檔案。",
+            ["save.incomplete.title"] = "儲存未完成",
+            ["save.done.title"] = "儲存完成",
+            ["summary.files"] = "掃描檔案數",
+            ["summary.states"] = "世界狀態檔案數",
+            ["summary.playersaves"] = "玩家存檔數",
+            ["summary.player"] = "玩家",
+        },
+    };
+
+    private static readonly Dictionary<string, string> English = new()
+    {
+        ["app.title"] = "Romestead Save Inspector - WinUI 3",
+        ["app.subtitle"] = "Inspect saves, edit player item stack counts, back up before saving, and copy saved files to output.",
+        ["language"] = "Language",
+        ["information"] = "Information",
+        ["info.version"] = "Version",
+        ["info.date"] = "Date",
+        ["info.game.version"] = "Compatible game version",
+        ["info.author"] = "Author",
+        ["step1.title"] = "Step 1: Prepare dependency DLLs",
+        ["step1.desc"] = "Manually copy *.dll from the Romestead game folder into this tool's lib folder.",
+        ["open.lib"] = "Open lib folder",
+        ["step2.title"] = "Step 2: Add save files",
+        ["step2.desc"] = "Copy game_state, world_desc, and username.char into the input folder. You can open the game save directory first and copy them manually.",
+        ["open.profiles"] = "Open game save directory",
+        ["open.input"] = "Open input folder",
+        ["step3.title"] = "Step 3: Inspect and save",
+        ["username"] = "User name",
+        ["username.placeholder"] = "Enter user name, without .char",
+        ["check.files"] = "Check files",
+        ["inspect"] = "Inspect",
+        ["save.items"] = "Save player items",
+        ["status"] = "Status",
+        ["ready"] = "Ready.",
+        ["world.info"] = "World information",
+        ["player.totals"] = "Player item totals",
+        ["player.items"] = "Player items (StackCount editable)",
+        ["section"] = "Section",
+        ["slot"] = "Slot",
+        ["item.id"] = "Item ID",
+        ["count"] = "Count",
+        ["debug.log"] = "Debug log (shown by default)",
+        ["help.close"] = "OK",
+        ["help.dll.title"] = "Prepare dependency DLLs",
+        ["help.dll.text"] = "Manually copy *.dll from the Romestead game folder into the lib folder. At minimum, you need CandideServer.dll, Shared.dll, CandideCreator.Shared.dll, and MonoGame.Framework.dll. To avoid missing dependencies, copying all DLLs from the game folder root is recommended. The tool only reads these DLLs and will not modify them.",
+        ["help.files.title"] = "Add save files",
+        ["help.files.text"] = "Copy game_state, world_desc, and the player .char file from the save directory into the input folder. Player inventory detection mainly depends on the .char file.",
+        ["help.workflow.title"] = "Inspect and save",
+        ["help.workflow.text"] = "Click Inspect first. After detection succeeds, edit StackCount in the player item table. Before Save player items writes anything, the tool backs up every .char file in input to backup, then overwrites the edited .char in input and copies one more copy to output.",
+        ["check.ok.title"] = "Check passed",
+        ["check.ok.msg"] = "Required DLLs and save files were found.",
+        ["check.missing.title"] = "Missing files",
+        ["inspect.running.title"] = "Inspecting",
+        ["inspect.running.msg"] = "Reading save files from input. Please wait.",
+        ["inspect.failed.title"] = "Inspection failed",
+        ["inspect.failed.msg"] = "The inspection process returned an error. Check the debug log below or logs/latest.log.",
+        ["inspect.none.title"] = "Inspection completed, but no player items were found",
+        ["inspect.none.msg"] = "Make sure input contains the correct .char file and that the user name matches.",
+        ["inspect.done.title"] = "Inspection completed",
+        ["inspect.done.msg"] = "Found {0} player item record(s).",
+        ["save.invalid.title"] = "Save failed",
+        ["save.invalid.msg"] = "Invalid quantity found. StackCount must be a non-negative integer.",
+        ["save.nochange.title"] = "Nothing to save",
+        ["save.nochange.msg"] = "No StackCount changes were detected.",
+        ["save.running.title"] = "Saving",
+        ["save.running.msg"] = "Backing up .char files and writing the edited player file.",
+        ["save.incomplete.title"] = "Save incomplete",
+        ["save.done.title"] = "Save completed",
+        ["summary.files"] = "Files scanned",
+        ["summary.states"] = "World state files",
+        ["summary.playersaves"] = "Player saves",
+        ["summary.player"] = "Player",
+    };
+
+    private static Dictionary<string, string> Lang(params (string Key, string Value)[] pairs)
+    {
+        var d = new Dictionary<string, string>(English);
+        foreach (var (key, value) in pairs) d[key] = value;
+        return d;
+    }
+
+    static Localization()
+    {
+        Languages["en"] = English;
+        Languages["de"] = Lang(
+            ("language", "Sprache"), ("information", "Information"), ("info.version", "Version"), ("info.date", "Datum"), ("info.game.version", "Kompatible Spielversion"), ("info.author", "Autor"), ("app.subtitle", "Speicherstände prüfen, Stapelgrößen von Spielerobjekten ändern, vor dem Speichern sichern und gespeicherte Dateien nach output kopieren."),
+            ("step1.title", "Schritt 1: Abhängigkeits-DLLs vorbereiten"), ("step1.desc", "Kopiere die *.dll-Dateien aus dem Romestead-Spielordner manuell in den lib-Ordner dieses Tools."), ("open.lib", "lib-Ordner öffnen"),
+            ("step2.title", "Schritt 2: Speicherdateien hinzufügen"), ("step2.desc", "Kopiere game_state, world_desc und benutzername.char in den input-Ordner. Du kannst zuerst den Spielstandordner öffnen und sie manuell kopieren."), ("open.profiles", "Spielstandordner öffnen"), ("open.input", "input-Ordner öffnen"),
+            ("step3.title", "Schritt 3: Prüfen und speichern"), ("username", "Benutzername"), ("username.placeholder", "Benutzernamen ohne .char eingeben"), ("check.files", "Dateien prüfen"), ("inspect", "Prüfen"), ("save.items", "Spielerobjekte speichern"),
+            ("status", "Status"), ("ready", "Bereit."), ("world.info", "Weltinformationen"), ("player.totals", "Spielerobjekte gesamt"), ("player.items", "Spielerobjekte (StackCount bearbeitbar)"), ("section", "Bereich"), ("slot", "Slot"), ("item.id", "Objekt-ID"), ("count", "Anzahl"), ("debug.log", "Debug-Protokoll (standardmäßig sichtbar)"), ("help.close", "OK"),
+            ("help.dll.title", "Abhängigkeits-DLLs vorbereiten"), ("help.dll.text", "Kopiere die *.dll-Dateien aus dem Romestead-Spielordner manuell in den lib-Ordner. Mindestens benötigt werden CandideServer.dll, Shared.dll, CandideCreator.Shared.dll und MonoGame.Framework.dll. Um fehlende Abhängigkeiten zu vermeiden, wird empfohlen, alle DLLs aus dem Stammordner des Spiels zu kopieren. Das Tool liest diese DLLs nur und verändert sie nicht."),
+            ("help.files.title", "Speicherdateien hinzufügen"), ("help.files.text", "Kopiere world_desc und die Spielerdatei .char aus dem Speicherordner in den input-Ordner. Die Erkennung des Spielerinventars hängt hauptsächlich von der .char-Datei ab."),
+            ("help.workflow.title", "Prüfen und speichern"), ("help.workflow.text", "Klicke zuerst auf Prüfen. Nach erfolgreicher Erkennung kannst du StackCount in der Spielerobjekt-Tabelle ändern. Vor dem Speichern sichert das Tool alle .char-Dateien aus input nach backup, überschreibt dann die bearbeitete .char-Datei in input und kopiert zusätzlich eine Version nach output."),
+            ("check.ok.title", "Prüfung bestanden"), ("check.ok.msg", "Erforderliche DLLs und Speicherdateien wurden gefunden."), ("check.missing.title", "Fehlende Dateien"), ("inspect.running.title", "Prüfung läuft"), ("inspect.running.msg", "Speicherdateien aus input werden gelesen. Bitte warten."), ("inspect.failed.title", "Prüfung fehlgeschlagen"), ("inspect.failed.msg", "Der Prüfvorgang hat einen Fehler zurückgegeben. Siehe Debug-Protokoll unten oder logs/latest.log."), ("inspect.none.title", "Prüfung abgeschlossen, aber keine Spielerobjekte gefunden"), ("inspect.none.msg", "Stelle sicher, dass input die richtige .char-Datei enthält und der Benutzername stimmt."), ("inspect.done.title", "Prüfung abgeschlossen"), ("inspect.done.msg", "{0} Spielerobjekt-Eintrag/Einträge gefunden."), ("save.invalid.title", "Speichern fehlgeschlagen"), ("save.invalid.msg", "Ungültige Anzahl gefunden. StackCount muss eine nicht negative Ganzzahl sein."), ("save.nochange.title", "Nichts zu speichern"), ("save.nochange.msg", "Keine StackCount-Änderungen erkannt."), ("save.running.title", "Speichern"), ("save.running.msg", ".char-Dateien werden gesichert und die bearbeitete Spielerdatei geschrieben."), ("save.incomplete.title", "Speichern unvollständig"), ("save.done.title", "Speichern abgeschlossen"), ("summary.files", "Gescannte Dateien"), ("summary.states", "Weltstatus-Dateien"), ("summary.playersaves", "Spielerstände"), ("summary.player", "Spieler"));
+        Languages["es"] = Lang(("language", "Idioma"), ("information", "Información"), ("info.version", "Versión"), ("info.date", "Fecha"), ("info.game.version", "Versión del juego compatible"), ("info.author", "Autor"), ("app.subtitle", "Inspecciona partidas, edita cantidades de objetos del jugador, crea copia de seguridad antes de guardar y copia los archivos guardados a output."), ("step1.title", "Paso 1: Preparar DLL dependientes"), ("step1.desc", "Copia manualmente los *.dll de la carpeta del juego Romestead a la carpeta lib de esta herramienta."), ("open.lib", "Abrir carpeta lib"), ("step2.title", "Paso 2: Añadir archivos de guardado"), ("step2.desc", "Copia world_desc y usuario.char a la carpeta input. También puedes abrir primero la carpeta de guardados del juego y copiarlos manualmente."), ("open.profiles", "Abrir carpeta de guardados"), ("open.input", "Abrir carpeta input"), ("step3.title", "Paso 3: Inspeccionar y guardar"), ("username", "Usuario"), ("username.placeholder", "Introduce el usuario, sin .char"), ("check.files", "Comprobar archivos"), ("inspect", "Inspeccionar"), ("save.items", "Guardar objetos del jugador"), ("status", "Estado"), ("ready", "Listo."), ("world.info", "Información del mundo"), ("player.totals", "Totales de objetos"), ("player.items", "Objetos del jugador (StackCount editable)"), ("section", "Sección"), ("slot", "Casilla"), ("item.id", "ID del objeto"), ("count", "Cantidad"), ("debug.log", "Registro de depuración (visible por defecto)"), ("help.close", "Aceptar"), ("help.dll.title", "Preparar DLL dependientes"), ("help.files.title", "Añadir archivos de guardado"), ("help.workflow.title", "Inspeccionar y guardar"), ("check.ok.title", "Comprobación correcta"), ("check.ok.msg", "Se encontraron las DLL y archivos de guardado necesarios."), ("check.missing.title", "Faltan archivos"), ("inspect.running.title", "Inspeccionando"), ("inspect.running.msg", "Leyendo archivos de input. Espera."), ("inspect.failed.title", "Inspección fallida"), ("inspect.failed.msg", "La inspección devolvió un error. Revisa el registro inferior o logs/latest.log."), ("inspect.none.title", "Inspección completada, pero no se encontraron objetos del jugador"), ("inspect.none.msg", "Confirma que input contiene el archivo .char correcto y que el usuario coincide."), ("inspect.done.title", "Inspección completada"), ("inspect.done.msg", "Se encontraron {0} registros de objetos del jugador."), ("save.invalid.title", "Error al guardar"), ("save.invalid.msg", "Cantidad no válida. StackCount debe ser un entero no negativo."), ("save.nochange.title", "Nada que guardar"), ("save.nochange.msg", "No se detectaron cambios en StackCount."), ("save.running.title", "Guardando"), ("save.running.msg", "Creando copia de .char y escribiendo el archivo editado."), ("save.incomplete.title", "Guardado incompleto"), ("save.done.title", "Guardado completado"), ("summary.files", "Archivos escaneados"), ("summary.states", "Archivos de estado del mundo"), ("summary.playersaves", "Guardados de jugador"), ("summary.player", "Jugador"));
+        Languages["fr"] = Lang(("language", "Langue"), ("information", "Informations"), ("info.version", "Version"), ("info.date", "Date"), ("info.game.version", "Version du jeu compatible"), ("info.author", "Auteur"), ("app.subtitle", "Inspecter les sauvegardes, modifier les piles d'objets du joueur, sauvegarder avant écriture et copier les fichiers enregistrés vers output."), ("step1.title", "Étape 1 : Préparer les DLL"), ("step1.desc", "Copiez manuellement les *.dll du dossier du jeu Romestead dans le dossier lib de cet outil."), ("open.lib", "Ouvrir le dossier lib"), ("step2.title", "Étape 2 : Ajouter les fichiers de sauvegarde"), ("step2.desc", "Copiez world_desc et utilisateur.char dans le dossier input. Vous pouvez d'abord ouvrir le dossier des sauvegardes du jeu."), ("open.profiles", "Ouvrir le dossier des sauvegardes"), ("open.input", "Ouvrir le dossier input"), ("step3.title", "Étape 3 : Inspecter et enregistrer"), ("username", "Nom d'utilisateur"), ("username.placeholder", "Nom d'utilisateur sans .char"), ("check.files", "Vérifier les fichiers"), ("inspect", "Inspecter"), ("save.items", "Enregistrer les objets"), ("status", "État"), ("ready", "Prêt."), ("world.info", "Informations du monde"), ("player.totals", "Totaux des objets"), ("player.items", "Objets du joueur (StackCount modifiable)"), ("section", "Section"), ("slot", "Emplacement"), ("item.id", "ID d'objet"), ("count", "Quantité"), ("debug.log", "Journal de débogage (affiché par défaut)"), ("help.close", "OK"), ("help.dll.title", "Préparer les DLL"), ("help.files.title", "Ajouter les fichiers de sauvegarde"), ("help.workflow.title", "Inspecter et enregistrer"), ("check.ok.title", "Vérification réussie"), ("check.ok.msg", "Les DLL et fichiers de sauvegarde requis ont été trouvés."), ("check.missing.title", "Fichiers manquants"), ("inspect.running.title", "Inspection"), ("inspect.running.msg", "Lecture des fichiers de input. Veuillez patienter."), ("inspect.failed.title", "Échec de l'inspection"), ("inspect.failed.msg", "Le processus a renvoyé une erreur. Consultez le journal ci-dessous ou logs/latest.log."), ("inspect.none.title", "Inspection terminée, mais aucun objet joueur trouvé"), ("inspect.none.msg", "Vérifiez que input contient le bon fichier .char et que le nom correspond."), ("inspect.done.title", "Inspection terminée"), ("inspect.done.msg", "{0} enregistrement(s) d'objets joueur trouvé(s)."), ("save.invalid.title", "Échec de l'enregistrement"), ("save.invalid.msg", "Quantité invalide. StackCount doit être un entier positif ou nul."), ("save.nochange.title", "Rien à enregistrer"), ("save.nochange.msg", "Aucun changement de StackCount détecté."), ("save.running.title", "Enregistrement"), ("save.running.msg", "Sauvegarde des .char et écriture du fichier joueur modifié."), ("save.incomplete.title", "Enregistrement incomplet"), ("save.done.title", "Enregistrement terminé"), ("summary.files", "Fichiers analysés"), ("summary.states", "Fichiers d'état du monde"), ("summary.playersaves", "Sauvegardes joueur"), ("summary.player", "Joueur"));
+        Languages["pl"] = Lang(("language", "Język"), ("information", "Informacje"), ("info.version", "Wersja"), ("info.date", "Data"), ("info.game.version", "Zgodna wersja gry"), ("info.author", "Autor"), ("app.subtitle", "Sprawdzaj zapisy, edytuj liczby przedmiotów gracza, twórz kopię zapasową przed zapisem i kopiuj zapisane pliki do output."), ("step1.title", "Krok 1: Przygotuj biblioteki DLL"), ("step1.desc", "Ręcznie skopiuj *.dll z folderu gry Romestead do folderu lib tego narzędzia."), ("open.lib", "Otwórz folder lib"), ("step2.title", "Krok 2: Dodaj pliki zapisu"), ("step2.desc", "Skopiuj world_desc i użytkownik.char do folderu input. Możesz najpierw otworzyć folder zapisów gry."), ("open.profiles", "Otwórz folder zapisów gry"), ("open.input", "Otwórz folder input"), ("step3.title", "Krok 3: Sprawdź i zapisz"), ("username", "Nazwa użytkownika"), ("username.placeholder", "Wpisz nazwę bez .char"), ("check.files", "Sprawdź pliki"), ("inspect", "Sprawdź"), ("save.items", "Zapisz przedmioty"), ("status", "Stan"), ("ready", "Gotowe."), ("world.info", "Informacje o świecie"), ("player.totals", "Sumy przedmiotów"), ("player.items", "Przedmioty gracza (edytowalny StackCount)"), ("section", "Sekcja"), ("slot", "Miejsce"), ("item.id", "ID przedmiotu"), ("count", "Liczba"), ("debug.log", "Dziennik debugowania (domyślnie widoczny)"), ("help.close", "OK"), ("check.ok.title", "Sprawdzenie zakończone"), ("check.ok.msg", "Wymagane DLL i pliki zapisu zostały znalezione."), ("check.missing.title", "Brakujące pliki"), ("inspect.running.title", "Sprawdzanie"), ("inspect.running.msg", "Odczytywanie plików z input. Czekaj."), ("inspect.failed.title", "Sprawdzanie nieudane"), ("inspect.none.title", "Sprawdzanie zakończone, ale nie znaleziono przedmiotów gracza"), ("inspect.done.title", "Sprawdzanie zakończone"), ("inspect.done.msg", "Znaleziono {0} rekordów przedmiotów gracza."), ("save.invalid.title", "Zapis nieudany"), ("save.invalid.msg", "Nieprawidłowa liczba. StackCount musi być nieujemną liczbą całkowitą."), ("save.nochange.title", "Nie ma co zapisać"), ("save.nochange.msg", "Nie wykryto zmian StackCount."), ("save.running.title", "Zapisywanie"), ("save.done.title", "Zapis zakończony"), ("summary.files", "Przeskanowane pliki"), ("summary.states", "Pliki stanu świata"), ("summary.playersaves", "Zapisy gracza"), ("summary.player", "Gracz"));
+        Languages["pt-BR"] = Lang(("language", "Idioma"), ("information", "Informações"), ("info.version", "Versão"), ("info.date", "Data"), ("info.game.version", "Versão do jogo compatível"), ("info.author", "Autor"), ("app.subtitle", "Inspecione saves, edite quantidades dos itens do jogador, faça backup antes de salvar e copie os arquivos salvos para output."), ("step1.title", "Etapa 1: Preparar DLLs"), ("step1.desc", "Copie manualmente os *.dll da pasta do jogo Romestead para a pasta lib desta ferramenta."), ("open.lib", "Abrir pasta lib"), ("step2.title", "Etapa 2: Adicionar saves"), ("step2.desc", "Copie world_desc e usuario.char para a pasta input. Você também pode abrir a pasta de saves do jogo primeiro."), ("open.profiles", "Abrir pasta de saves"), ("open.input", "Abrir pasta input"), ("step3.title", "Etapa 3: Inspecionar e salvar"), ("username", "Usuário"), ("username.placeholder", "Digite o usuário, sem .char"), ("check.files", "Verificar arquivos"), ("inspect", "Inspecionar"), ("save.items", "Salvar itens"), ("status", "Status"), ("ready", "Pronto."), ("world.info", "Informações do mundo"), ("player.totals", "Totais de itens"), ("player.items", "Itens do jogador (StackCount editável)"), ("section", "Seção"), ("slot", "Slot"), ("item.id", "ID do item"), ("count", "Quantidade"), ("debug.log", "Log de depuração (visível por padrão)"), ("help.close", "OK"), ("check.ok.title", "Verificação aprovada"), ("check.ok.msg", "DLLs e arquivos de save necessários foram encontrados."), ("check.missing.title", "Arquivos ausentes"), ("inspect.running.title", "Inspecionando"), ("inspect.running.msg", "Lendo arquivos da pasta input. Aguarde."), ("inspect.failed.title", "Falha na inspeção"), ("inspect.none.title", "Inspeção concluída, mas nenhum item do jogador foi encontrado"), ("inspect.done.title", "Inspeção concluída"), ("inspect.done.msg", "Encontrados {0} registros de itens do jogador."), ("save.invalid.title", "Falha ao salvar"), ("save.invalid.msg", "Quantidade inválida. StackCount deve ser um inteiro não negativo."), ("save.nochange.title", "Nada para salvar"), ("save.nochange.msg", "Nenhuma alteração de StackCount foi detectada."), ("save.running.title", "Salvando"), ("save.done.title", "Salvamento concluído"), ("summary.files", "Arquivos verificados"), ("summary.states", "Arquivos de estado do mundo"), ("summary.playersaves", "Saves do jogador"), ("summary.player", "Jogador"));
+        Languages["ru"] = Lang(("language", "Язык"), ("information", "Информация"), ("info.version", "Версия"), ("info.date", "Дата"), ("info.game.version", "Совместимая версия игры"), ("info.author", "Автор"), ("app.subtitle", "Проверка сохранений, изменение количества предметов игрока, резервное копирование перед сохранением и копирование результата в output."), ("step1.title", "Шаг 1: Подготовьте DLL"), ("step1.desc", "Вручную скопируйте *.dll из папки игры Romestead в папку lib этого инструмента."), ("open.lib", "Открыть папку lib"), ("step2.title", "Шаг 2: Добавьте файлы сохранения"), ("step2.desc", "Скопируйте game_state, world_desc и имя.char в папку input. Можно сначала открыть папку сохранений игры."), ("open.profiles", "Открыть папку сохранений"), ("open.input", "Открыть папку input"), ("step3.title", "Шаг 3: Проверка и сохранение"), ("username", "Имя пользователя"), ("username.placeholder", "Введите имя без .char"), ("check.files", "Проверить файлы"), ("inspect", "Проверить"), ("save.items", "Сохранить предметы"), ("status", "Статус"), ("ready", "Готово."), ("world.info", "Информация о мире"), ("player.totals", "Итоги предметов"), ("player.items", "Предметы игрока (StackCount редактируется)"), ("section", "Раздел"), ("slot", "Слот"), ("item.id", "ID предмета"), ("count", "Количество"), ("debug.log", "Журнал отладки (показан по умолчанию)"), ("help.close", "OK"), ("check.ok.title", "Проверка пройдена"), ("check.ok.msg", "Нужные DLL и файлы сохранения найдены."), ("check.missing.title", "Отсутствуют файлы"), ("inspect.running.title", "Проверка"), ("inspect.running.msg", "Чтение файлов из input. Подождите."), ("inspect.failed.title", "Проверка не удалась"), ("inspect.none.title", "Проверка завершена, но предметы игрока не найдены"), ("inspect.done.title", "Проверка завершена"), ("inspect.done.msg", "Найдено записей предметов игрока: {0}."), ("save.invalid.title", "Сохранение не удалось"), ("save.invalid.msg", "Недопустимое количество. StackCount должен быть неотрицательным целым числом."), ("save.nochange.title", "Нечего сохранять"), ("save.nochange.msg", "Изменения StackCount не обнаружены."), ("save.running.title", "Сохранение"), ("save.done.title", "Сохранение завершено"), ("summary.files", "Просканировано файлов"), ("summary.states", "Файлы состояния мира"), ("summary.playersaves", "Сохранения игрока"), ("summary.player", "Игрок"));
+        Languages["ja"] = Lang(("language", "言語"), ("information", "情報"), ("info.version", "バージョン"), ("info.date", "日付"), ("info.game.version", "対応ゲームバージョン"), ("info.author", "作者"), ("app.subtitle", "セーブを解析し、プレイヤーアイテムのスタック数を編集し、保存前にバックアップして、保存後のファイルを output にコピーします。"), ("step1.title", "手順 1：依存 DLL を準備"), ("step1.desc", "Romestead のゲームフォルダーにある *.dll を、このツールの lib フォルダーへ手動でコピーします。"), ("open.lib", "lib フォルダーを開く"), ("step2.title", "手順 2：セーブファイルを追加"), ("step2.desc", "game_state、world_desc、ユーザー名.char を input フォルダーにコピーします。先にゲームのセーブフォルダーを開いて手動でコピーできます。"), ("open.profiles", "ゲームのセーブフォルダーを開く"), ("open.input", "input フォルダーを開く"), ("step3.title", "手順 3：解析と保存"), ("username", "ユーザー名"), ("username.placeholder", ".char を除いたユーザー名"), ("check.files", "ファイル確認"), ("inspect", "解析"), ("save.items", "プレイヤーアイテムを保存"), ("status", "状態"), ("ready", "準備完了。"), ("world.info", "ワールド情報"), ("player.totals", "プレイヤーアイテム合計"), ("player.items", "プレイヤーアイテム（StackCount 編集可）"), ("section", "区分"), ("slot", "スロット"), ("item.id", "アイテム ID"), ("count", "数量"), ("debug.log", "デバッグログ（既定で表示）"), ("help.close", "OK"), ("check.ok.title", "確認完了"), ("check.ok.msg", "必要な DLL とセーブファイルが見つかりました。"), ("check.missing.title", "不足ファイル"), ("inspect.running.title", "解析中"), ("inspect.running.msg", "input のセーブファイルを読み込んでいます。お待ちください。"), ("inspect.failed.title", "解析失敗"), ("inspect.none.title", "解析完了、ただしプレイヤーアイテムなし"), ("inspect.done.title", "解析完了"), ("inspect.done.msg", "プレイヤーアイテム記録を {0} 件見つけました。"), ("save.invalid.title", "保存失敗"), ("save.invalid.msg", "無効な数量です。StackCount は 0 以上の整数である必要があります。"), ("save.nochange.title", "保存不要"), ("save.nochange.msg", "StackCount の変更は検出されませんでした。"), ("save.running.title", "保存中"), ("save.done.title", "保存完了"), ("summary.files", "スキャン済みファイル"), ("summary.states", "ワールド状態ファイル"), ("summary.playersaves", "プレイヤーセーブ"), ("summary.player", "プレイヤー"));
+        Languages["tr"] = Lang(("language", "Dil"), ("information", "Bilgi"), ("info.version", "Sürüm"), ("info.date", "Tarih"), ("info.game.version", "Uyumlu oyun sürümü"), ("info.author", "Yazar"), ("app.subtitle", "Kayıtları incele, oyuncu eşya yığın sayılarını düzenle, kaydetmeden önce yedekle ve kaydedilen dosyaları output klasörüne kopyala."), ("step1.title", "Adım 1: DLL bağımlılıklarını hazırla"), ("step1.desc", "Romestead oyun klasöründeki *.dll dosyalarını bu aracın lib klasörüne elle kopyala."), ("open.lib", "lib klasörünü aç"), ("step2.title", "Adım 2: Kayıt dosyalarını ekle"), ("step2.desc", "game_state, world_desc ve kullanıcıadı.char dosyasını input klasörüne kopyala. Önce oyun kayıt klasörünü açıp elle kopyalayabilirsin."), ("open.profiles", "Oyun kayıt klasörünü aç"), ("open.input", "input klasörünü aç"), ("step3.title", "Adım 3: İncele ve kaydet"), ("username", "Kullanıcı adı"), ("username.placeholder", ".char olmadan kullanıcı adı"), ("check.files", "Dosyaları kontrol et"), ("inspect", "İncele"), ("save.items", "Oyuncu eşyalarını kaydet"), ("status", "Durum"), ("ready", "Hazır."), ("world.info", "Dünya bilgisi"), ("player.totals", "Oyuncu eşya toplamları"), ("player.items", "Oyuncu eşyaları (StackCount düzenlenebilir)"), ("section", "Bölüm"), ("slot", "Yuva"), ("item.id", "Eşya ID"), ("count", "Sayı"), ("debug.log", "Hata ayıklama günlüğü (varsayılan olarak görünür)"), ("help.close", "Tamam"), ("check.ok.title", "Kontrol başarılı"), ("check.ok.msg", "Gerekli DLL ve kayıt dosyaları bulundu."), ("check.missing.title", "Eksik dosyalar"), ("inspect.running.title", "İnceleniyor"), ("inspect.running.msg", "input içindeki kayıt dosyaları okunuyor. Lütfen bekle."), ("inspect.failed.title", "İnceleme başarısız"), ("inspect.none.title", "İnceleme tamamlandı, ancak oyuncu eşyası bulunamadı"), ("inspect.done.title", "İnceleme tamamlandı"), ("inspect.done.msg", "{0} oyuncu eşya kaydı bulundu."), ("save.invalid.title", "Kaydetme başarısız"), ("save.invalid.msg", "Geçersiz sayı. StackCount negatif olmayan bir tam sayı olmalı."), ("save.nochange.title", "Kaydedilecek değişiklik yok"), ("save.nochange.msg", "StackCount değişikliği algılanmadı."), ("save.running.title", "Kaydediliyor"), ("save.done.title", "Kaydetme tamamlandı"), ("summary.files", "Taranan dosyalar"), ("summary.states", "Dünya durumu dosyaları"), ("summary.playersaves", "Oyuncu kayıtları"), ("summary.player", "Oyuncu"));
+        Languages["ko"] = Lang(("language", "언어"), ("information", "정보"), ("info.version", "버전"), ("info.date", "날짜"), ("info.game.version", "지원 게임 버전"), ("info.author", "제작자"), ("app.subtitle", "세이브를 검사하고, 플레이어 아이템 스택 수를 수정하며, 저장 전에 백업하고 저장된 파일을 output으로 복사합니다."), ("step1.title", "1단계: DLL 준비"), ("step1.desc", "Romestead 게임 폴더의 *.dll 파일을 이 도구의 lib 폴더로 직접 복사하세요."), ("open.lib", "lib 폴더 열기"), ("step2.title", "2단계: 세이브 파일 추가"), ("step2.desc", "game_state, world_desc, 사용자이름.char 파일을 input 폴더에 복사하세요. 먼저 게임 세이브 폴더를 열어 수동으로 복사할 수 있습니다."), ("open.profiles", "게임 세이브 폴더 열기"), ("open.input", "input 폴더 열기"), ("step3.title", "3단계: 검사 및 저장"), ("username", "사용자 이름"), ("username.placeholder", ".char 제외 사용자 이름"), ("check.files", "파일 확인"), ("inspect", "검사"), ("save.items", "플레이어 아이템 저장"), ("status", "상태"), ("ready", "준비됨."), ("world.info", "월드 정보"), ("player.totals", "플레이어 아이템 합계"), ("player.items", "플레이어 아이템 (StackCount 수정 가능)"), ("section", "구역"), ("slot", "슬롯"), ("item.id", "아이템 ID"), ("count", "수량"), ("debug.log", "디버그 로그 (기본 표시)"), ("help.close", "확인"), ("check.ok.title", "확인 완료"), ("check.ok.msg", "필요한 DLL과 세이브 파일을 찾았습니다."), ("check.missing.title", "누락된 파일"), ("inspect.running.title", "검사 중"), ("inspect.running.msg", "input의 세이브 파일을 읽는 중입니다. 기다려 주세요."), ("inspect.failed.title", "검사 실패"), ("inspect.none.title", "검사는 완료되었지만 플레이어 아이템을 찾지 못했습니다"), ("inspect.done.title", "검사 완료"), ("inspect.done.msg", "플레이어 아이템 기록 {0}개를 찾았습니다."), ("save.invalid.title", "저장 실패"), ("save.invalid.msg", "잘못된 수량입니다. StackCount는 0 이상의 정수여야 합니다."), ("save.nochange.title", "저장할 내용 없음"), ("save.nochange.msg", "StackCount 변경이 감지되지 않았습니다."), ("save.running.title", "저장 중"), ("save.done.title", "저장 완료"), ("summary.files", "스캔한 파일"), ("summary.states", "월드 상태 파일"), ("summary.playersaves", "플레이어 세이브"), ("summary.player", "플레이어"));
+    }
+
+    public static string T(string language, string key)
+    {
+        if (Languages.TryGetValue(language, out var lang) && lang.TryGetValue(key, out var value)) return value;
+        return English.TryGetValue(key, out var english) ? english : key;
+    }
+}
