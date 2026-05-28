@@ -1,8 +1,8 @@
 MIT License / MIT 许可证
 
-Copyright (c) YEAR COPYRIGHT HOLDER
+Copyright (c) 2026 COPYRIGHT Maple5335
 
-版权归 YEAR COPYRIGHT HOLDER 所有。
+版权归 2026 COPYRIGHT Maple5335 所有。
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the “Software”), to deal
