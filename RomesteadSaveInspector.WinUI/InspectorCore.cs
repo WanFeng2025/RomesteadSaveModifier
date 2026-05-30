@@ -356,14 +356,16 @@ internal static class InspectorCore
             }
 
             // Raw-preserved entry payloads can contain compact string-table indexes.
-            // Mixing original payload chunks with a newly generated string map is unsafe,
-            // especially for BiomeIds. Refuse the patch unless the serialized header/root
-            // prefix before the first StateEntry is byte-identical to the original prefix.
+            // Exact header equality is best. However, changing citizen traits/jobs can make
+            // the serializer append new strings to the string map before StateEntry[0].
+            // In that append-only case the old indexes used by WorldTiles/BiomeIds/Difficulties
+            // remain stable, so raw-preserve is still acceptable. We allow only bounded header
+            // growth and still validate the final file by deserializing it and comparing entries.
             var originalHeaderLength = originalSpans.Count > 0 ? originalSpans[0].Offset : originalPayload.LongLength;
             var serializedHeaderLength = serializedSpans.Count > 0 ? serializedSpans[0].Offset : serializedPayload.LongLength;
-            if (originalHeaderLength != serializedHeaderLength || !ByteRangesEqual(originalPayload, 0, serializedPayload, 0, originalHeaderLength))
+            if (!TryValidateRawPreserveHeader(originalPayload, originalHeaderLength, serializedPayload, serializedHeaderLength, out var headerNote))
             {
-                note = $"serialized header/string map changed. originalPrefix={originalHeaderLength:N0} bytes, serializedPrefix={serializedHeaderLength:N0} bytes. Refusing raw-preserve patch because original WorldTiles/BiomeIds/Difficulties may reference the original string map.";
+                note = headerNote;
                 return false;
             }
 
@@ -407,6 +409,8 @@ internal static class InspectorCore
 
             patchedFileBytes = WrapPayloadWithCompression(patchedPayload.ToArray(), gzipOutput);
             note = "保留 " + string.Join(", ", preserved);
+            if (!string.IsNullOrWhiteSpace(headerNote))
+                note += " | " + headerNote;
             return true;
         }
         catch (Exception ex)
@@ -435,6 +439,51 @@ internal static class InspectorCore
             var rightIndex = checked((int)(rightOffset + i));
             if (left[leftIndex] != right[rightIndex]) return false;
         }
+        return true;
+    }
+
+    private static bool TryValidateRawPreserveHeader(byte[] originalPayload, long originalHeaderLength, byte[] serializedPayload, long serializedHeaderLength, out string note)
+    {
+        note = "";
+
+        if (originalHeaderLength < 0 || serializedHeaderLength < 0 ||
+            originalHeaderLength > originalPayload.LongLength || serializedHeaderLength > serializedPayload.LongLength)
+        {
+            note = $"invalid raw-preserve header bounds. originalPrefix={originalHeaderLength:N0} bytes, serializedPrefix={serializedHeaderLength:N0} bytes.";
+            return false;
+        }
+
+        if (originalHeaderLength == serializedHeaderLength &&
+            ByteRangesEqual(originalPayload, 0, serializedPayload, 0, originalHeaderLength))
+        {
+            note = "header/string map exact";
+            return true;
+        }
+
+        var delta = serializedHeaderLength - originalHeaderLength;
+
+        // A negative delta means the string map/header shrank. Original raw array payloads may
+        // point to indexes that no longer exist, so this is unsafe.
+        if (delta < 0)
+        {
+            note = $"serialized header/string map shrank. originalPrefix={originalHeaderLength:N0} bytes, serializedPrefix={serializedHeaderLength:N0} bytes. Refusing raw-preserve patch.";
+            return false;
+        }
+
+        // Large header growth usually means a substantial string-table/layout rewrite rather
+        // than a few new trait/job/aura strings. Keep this conservative.
+        const long MaxAllowedHeaderGrowthBytes = 64 * 1024;
+        if (delta > MaxAllowedHeaderGrowthBytes)
+        {
+            note = $"serialized header/string map changed too much. originalPrefix={originalHeaderLength:N0} bytes, serializedPrefix={serializedHeaderLength:N0} bytes, delta={delta:N0} bytes. Refusing raw-preserve patch.";
+            return false;
+        }
+
+        // If the serialized header grew only slightly, treat it as string-map extension.
+        // The final modified file is still deserialized and its StateEntries are compared
+        // before input/game_state can be overwritten.
+        note = $"header/string map extended by {delta:N0} bytes; raw-preserve allowed with post-write validation";
+        AppLogger.Info("Raw-preserve header compatibility: " + note);
         return true;
     }
 

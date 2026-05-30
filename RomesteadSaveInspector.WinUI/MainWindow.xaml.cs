@@ -443,7 +443,7 @@ public sealed partial class MainWindow : Window
         var latestButton = new Button { Content = L("settings.about.latest"), MinWidth = 220, Padding = new Thickness(12, 8, 12, 8) };
         latestButton.Click += (_, _) => OpenUrl("https://github.com/WanFeng2025/RomesteadSaveModifier/releases");
         var aboutPanel = new StackPanel { Spacing = 8, Padding = new Thickness(12) };
-        aboutPanel.Children.Add(new TextBlock { Text = $"{L("info.version")}: R1.1.32" });
+        aboutPanel.Children.Add(new TextBlock { Text = $"{L("info.version")}: R1.1.33" });
         aboutPanel.Children.Add(new TextBlock { Text = $"{L("info.date")}: 5月30日" });
         aboutPanel.Children.Add(new TextBlock { Text = $"{L("info.game.version")}: 0.25.1_4" });
         aboutPanel.Children.Add(new TextBlock { Text = $"{L("info.author")}: Maple5335" });
