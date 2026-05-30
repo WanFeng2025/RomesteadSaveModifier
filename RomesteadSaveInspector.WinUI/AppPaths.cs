@@ -15,6 +15,7 @@ internal static class AppPaths
     public static string OutputDir => Path.Combine(AppRoot, "output");
     public static string BackupDir => Path.Combine(AppRoot, "backup");
     public static string LogsDir => Path.Combine(AppRoot, "logs");
+    public static string DataDir => Path.Combine(AppRoot, "data");
 
     public static void EnsureStandardDirectories()
     {
@@ -24,6 +25,7 @@ internal static class AppPaths
         Directory.CreateDirectory(OutputDir);
         Directory.CreateDirectory(BackupDir);
         Directory.CreateDirectory(LogsDir);
+        Directory.CreateDirectory(DataDir);
     }
 
     private static string ResolveAppRoot()

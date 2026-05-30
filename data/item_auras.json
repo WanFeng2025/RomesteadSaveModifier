@@ -1,0 +1,458 @@
+[
+  {
+    "id": "item_aura:melee:rusted",
+    "category": "melee",
+    "format": "ItemModifier_Rusted",
+    "tier": -1,
+    "type": "auratype:stats_change",
+    "effects": "MeleeDamageModifier: Additive=-0.25; AttackSpeed: Additive=-0.05"
+  },
+  {
+    "id": "item_aura:melee:blunt",
+    "category": "melee",
+    "format": "ItemModifier_Blunt",
+    "tier": -1,
+    "type": "auratype:stats_change",
+    "effects": "MeleeDamageModifier: Additive=-0.15"
+  },
+  {
+    "id": "item_aura:melee:damaged",
+    "category": "melee",
+    "format": "ItemModifier_Damaged",
+    "tier": -1,
+    "type": "auratype:stats_change",
+    "effects": "MeleeDamageModifier: Additive=-0.25"
+  },
+  {
+    "id": "item_aura:melee:sharpened",
+    "category": "melee",
+    "format": "ItemModifier_Sharpened",
+    "tier": 0,
+    "type": "auratype:stats_change",
+    "effects": "MeleeDamageModifier: Additive=0.05; AttackSpeed: Additive=-0.05"
+  },
+  {
+    "id": "item_aura:melee:swift",
+    "category": "melee",
+    "format": "ItemModifier_Swift",
+    "tier": 0,
+    "type": "auratype:stats_change",
+    "effects": "MeleeDamageModifier: Additive=-0.05; AttackSpeed: Additive=0.1"
+  },
+  {
+    "id": "item_aura:melee:precise",
+    "category": "melee",
+    "format": "ItemModifier_Precise",
+    "tier": 0,
+    "type": "auratype:stats_change",
+    "effects": "MeleeDamageModifier: Additive=0.05; AttackSpeed: Additive=-0.05; AttackRangeModifier: Additive=-0.05; CritChance: Additive=0.1"
+  },
+  {
+    "id": "item_aura:melee:reaching",
+    "category": "melee",
+    "format": "ItemModifier_Reaching",
+    "tier": 0,
+    "type": "auratype:stats_change",
+    "effects": "MeleeDamageModifier: Additive=-0.05; AttackRangeModifier: Additive=0.15"
+  },
+  {
+    "id": "item_aura:melee:forceful",
+    "category": "melee",
+    "format": "ItemModifier_Forceful",
+    "tier": 0,
+    "type": "auratype:stats_change",
+    "effects": "MeleeDamageModifier: Additive=0.1; AttackSpeed: Additive=-0.05; AttackRangeModifier: Additive=-0.05; Knockback: Additive=0.1"
+  },
+  {
+    "id": "item_aura:melee:pristine",
+    "category": "melee",
+    "format": "ItemModifier_Pristine",
+    "tier": 0,
+    "type": "auratype:stats_change",
+    "effects": "MeleeDamageModifier: Additive=0.1; AttackSpeed: Additive=0.05; Knockback: Additive=-0.05"
+  },
+  {
+    "id": "item_aura:melee:masterwork",
+    "category": "melee",
+    "format": "ItemModifier_Masterwork",
+    "tier": 0,
+    "type": "auratype:stats_change",
+    "effects": "MeleeDamageModifier: Additive=0.15; CritChance: Additive=0.03"
+  },
+  {
+    "id": "item_aura:melee:legendary",
+    "category": "melee",
+    "format": "ItemModifier_Legendary",
+    "tier": 1,
+    "type": "auratype:stats_change",
+    "effects": "MeleeDamageModifier: Additive=0.15; AttackRangeModifier: Additive=0.1; CritChance: Additive=0.05; Knockback: Additive=0.05"
+  },
+  {
+    "id": "item_aura:ranged:rotted",
+    "category": "ranged",
+    "format": "ItemModifier_Rotted",
+    "tier": -1,
+    "type": "auratype:stats_change",
+    "effects": "RangedDamageModifier: Additive=-0.25; AttackSpeed: Additive=-0.05"
+  },
+  {
+    "id": "item_aura:ranged:weak",
+    "category": "ranged",
+    "format": "ItemModifier_Weak",
+    "tier": 0,
+    "type": "auratype:stats_change",
+    "effects": "RangedDamage: Additive=-0.15"
+  },
+  {
+    "id": "item_aura:ranged:sharpened",
+    "category": "ranged",
+    "format": "ItemModifier_Sharpened",
+    "tier": 0,
+    "type": "auratype:stats_change",
+    "effects": "RangedDamageModifier: Additive=0.1; AttackSpeed: Additive=-0.05"
+  },
+  {
+    "id": "item_aura:ranged:swift",
+    "category": "ranged",
+    "format": "ItemModifier_Swift",
+    "tier": 0,
+    "type": "auratype:stats_change",
+    "effects": "RangedDamageModifier: Additive=-0.05; AttackSpeed: Additive=0.1"
+  },
+  {
+    "id": "item_aura:ranged:forceful",
+    "category": "ranged",
+    "format": "ItemModifier_Forceful",
+    "tier": 0,
+    "type": "auratype:stats_change",
+    "effects": "RangedDamageModifier: Additive=0.05; AttackSpeed: Additive=-0.05; Knockback: Additive=0.1"
+  },
+  {
+    "id": "item_aura:ranged:pristine",
+    "category": "ranged",
+    "format": "ItemModifier_Pristine",
+    "tier": 0,
+    "type": "auratype:stats_change",
+    "effects": "RangedDamageModifier: Additive=0.1; Knockback: Additive=-0.05"
+  },
+  {
+    "id": "item_aura:ranged:masterwork",
+    "category": "ranged",
+    "format": "ItemModifier_Masterwork",
+    "tier": 0,
+    "type": "auratype:stats_change",
+    "effects": "RangedDamageModifier: Additive=0.15; AttackSpeed: Additive=0.05"
+  },
+  {
+    "id": "item_aura:ranged:legendary",
+    "category": "ranged",
+    "format": "ItemModifier_Legendary",
+    "tier": 1,
+    "type": "auratype:stats_change",
+    "effects": "RangedDamageModifier: Additive=0.15; AttackSpeed: Additive=0.1; CritChance: Additive=0.05"
+  },
+  {
+    "id": "item_aura:armor:dried",
+    "category": "armor",
+    "format": "ItemModifier_Dried",
+    "tier": -1,
+    "type": "auratype:stats_change",
+    "effects": "Armor: Additive=-2, AdditiveMultiplier=-0.02"
+  },
+  {
+    "id": "item_aura:armor:rusted",
+    "category": "armor",
+    "format": "ItemModifier_Rusted",
+    "tier": -1,
+    "type": "auratype:stats_change",
+    "effects": "Armor: Additive=-2, AdditiveMultiplier=-0.02"
+  },
+  {
+    "id": "item_aura:armor:damaged",
+    "category": "armor",
+    "format": "ItemModifier_Damaged",
+    "tier": -1,
+    "type": "auratype:stats_change",
+    "effects": "Armor: Additive=-2"
+  },
+  {
+    "id": "item_aura:armor:weak",
+    "category": "armor",
+    "format": "ItemModifier_Weak",
+    "tier": -1,
+    "type": "auratype:stats_change",
+    "effects": "Armor: Additive=-1"
+  },
+  {
+    "id": "item_aura:armor:pristine",
+    "category": "armor",
+    "format": "ItemModifier_Pristine",
+    "tier": 0,
+    "type": "auratype:stats_change",
+    "effects": "MeleeDamageModifier: Additive=0.05; SlashingResistance: Additive=0.005; PiercingResistance: Additive=0.005; BludgeoningResistance: Additive=0.005"
+  },
+  {
+    "id": "item_aura:armor:masterwork",
+    "category": "armor",
+    "format": "ItemModifier_Masterwork",
+    "tier": 0,
+    "type": "auratype:stats_change",
+    "effects": "EnergyRegeneration: Additive=1; SlashingResistance: Additive=0.01; PiercingResistance: Additive=0.01; BludgeoningResistance: Additive=0.01"
+  },
+  {
+    "id": "item_aura:armor:legendary",
+    "category": "armor",
+    "format": "ItemModifier_Legendary",
+    "tier": 1,
+    "type": "auratype:stats_change",
+    "effects": "EnergyRegeneration: Additive=2; SlashingResistance: Additive=0.015; PiercingResistance: Additive=0.015; BludgeoningResistance: Additive=0.015"
+  },
+  {
+    "id": "item_aura:armor:bulwark",
+    "category": "armor",
+    "format": "ItemModifier_Bulwark",
+    "tier": 0,
+    "type": "auratype:stats_change",
+    "effects": "EnergyRegeneration: Additive=-2; KnockbackResistance: Additive=0.1"
+  },
+  {
+    "id": "item_aura:armor:anti-hex",
+    "category": "armor",
+    "format": "ItemModifier_AntiHex",
+    "tier": 0,
+    "type": "auratype:stats_change",
+    "effects": "MagicResistance: Additive=5; EnergyRegeneration: Additive=-2"
+  },
+  {
+    "id": "item_aura:armor:hardened",
+    "category": "armor",
+    "format": "ItemModifier_Hardened",
+    "tier": 0,
+    "type": "auratype:stats_change",
+    "effects": "Armor: Additive=1; EnergyRegeneration: Additive=-1"
+  },
+  {
+    "id": "item_aura:trinket:angry",
+    "category": "trinket",
+    "format": "ItemModifier_Angry",
+    "tier": 0,
+    "type": "auratype:stats_change",
+    "effects": "MeleeDamageModifier: Additive=0.02"
+  },
+  {
+    "id": "item_aura:trinket:violent",
+    "category": "trinket",
+    "format": "ItemModifier_Violent",
+    "tier": 0,
+    "type": "auratype:stats_change",
+    "effects": "MeleeDamageModifier: Additive=0.04"
+  },
+  {
+    "id": "item_aura:trinket:pointy",
+    "category": "trinket",
+    "format": "ItemModifier_Pointy",
+    "tier": 0,
+    "type": "auratype:stats_change",
+    "effects": "RangedDamageModifier: Additive=0.02"
+  },
+  {
+    "id": "item_aura:trinket:piercing",
+    "category": "trinket",
+    "format": "ItemModifier_Piercing",
+    "tier": 0,
+    "type": "auratype:stats_change",
+    "effects": "RangedDamageModifier: Additive=0.04"
+  },
+  {
+    "id": "item_aura:trinket:blessed",
+    "category": "trinket",
+    "format": "ItemModifier_Blessed",
+    "tier": 0,
+    "type": "auratype:stats_change",
+    "effects": "MagicDamageModifier: Additive=0.02"
+  },
+  {
+    "id": "item_aura:trinket:sacred",
+    "category": "trinket",
+    "format": "ItemModifier_Sacred",
+    "tier": 0,
+    "type": "auratype:stats_change",
+    "effects": "MagicDamageModifier: Additive=0.04"
+  },
+  {
+    "id": "item_aura:trinket:heavy",
+    "category": "trinket",
+    "format": "ItemModifier_Heavy",
+    "tier": 0,
+    "type": "auratype:stats_change",
+    "effects": "ThrowingDamageModifier: Additive=0.02"
+  },
+  {
+    "id": "item_aura:trinket:forceful",
+    "category": "trinket",
+    "format": "ItemModifier_Forceful",
+    "tier": 0,
+    "type": "auratype:stats_change",
+    "effects": "ThrowingDamageModifier: Additive=0.04"
+  },
+  {
+    "id": "item_aura:trinket:enduring",
+    "category": "trinket",
+    "format": "ItemModifier_Enduring",
+    "tier": 0,
+    "type": "auratype:stats_change",
+    "effects": ""
+  },
+  {
+    "id": "item_aura:trinket:surefooted",
+    "category": "trinket",
+    "format": "ItemModifier_Surefooted",
+    "tier": 0,
+    "type": "auratype:stats_change",
+    "effects": ""
+  },
+  {
+    "id": "item_aura:trinket:lively",
+    "category": "trinket",
+    "format": "ItemModifier_Lively",
+    "tier": 0,
+    "type": "auratype:stats_change",
+    "effects": "EnergyRegeneration: Multiplier=0.02"
+  },
+  {
+    "id": "item_aura:trinket:energetic",
+    "category": "trinket",
+    "format": "ItemModifier_Energetic",
+    "tier": 0,
+    "type": "auratype:stats_change",
+    "effects": "EnergyRegeneration: Multiplier=0.04; Energy: Additive=5"
+  },
+  {
+    "id": "item_aura:trinket:hasty",
+    "category": "trinket",
+    "format": "ItemModifier_Hasty",
+    "tier": 0,
+    "type": "auratype:stats_change",
+    "effects": "MovementSpeed: Additive=0.01"
+  },
+  {
+    "id": "item_aura:trinket:swift",
+    "category": "trinket",
+    "format": "ItemModifier_Swift",
+    "tier": 0,
+    "type": "auratype:stats_change",
+    "effects": "MovementSpeed: Additive=0.02"
+  },
+  {
+    "id": "item_aura:trinket:hearty",
+    "category": "trinket",
+    "format": "ItemModifier_Hearty",
+    "tier": 0,
+    "type": "auratype:stats_change",
+    "effects": "Health: Additive=3"
+  },
+  {
+    "id": "item_aura:trinket:resilient",
+    "category": "trinket",
+    "format": "ItemModifier_Resilient",
+    "tier": 0,
+    "type": "auratype:stats_change",
+    "effects": "Health: Additive=5"
+  },
+  {
+    "id": "item_aura:trinket:guarding",
+    "category": "trinket",
+    "format": "ItemModifier_Guarding",
+    "tier": 0,
+    "type": "auratype:stats_change",
+    "effects": "Armor: Additive=1"
+  },
+  {
+    "id": "item_aura:trinket:defending",
+    "category": "trinket",
+    "format": "ItemModifier_Defending",
+    "tier": 0,
+    "type": "auratype:stats_change",
+    "effects": "Armor: Additive=2"
+  },
+  {
+    "id": "item_aura:trinket:protecting",
+    "category": "trinket",
+    "format": "ItemModifier_Protecting",
+    "tier": 0,
+    "type": "auratype:stats_change",
+    "effects": "MagicResistance: Additive=1"
+  },
+  {
+    "id": "item_aura:trinket:warding",
+    "category": "trinket",
+    "format": "ItemModifier_Warding",
+    "tier": 0,
+    "type": "auratype:stats_change",
+    "effects": "MagicResistance: Additive=2"
+  },
+  {
+    "id": "item_aura:trinket:lucky",
+    "category": "trinket",
+    "format": "ItemModifier_Lucky",
+    "tier": 0,
+    "type": "auratype:stats_change",
+    "effects": "CritChance: Additive=0.01"
+  },
+  {
+    "id": "item_aura:trinket:precise",
+    "category": "trinket",
+    "format": "ItemModifier_Precise",
+    "tier": 0,
+    "type": "auratype:stats_change",
+    "effects": "CritChance: Additive=0.02"
+  },
+  {
+    "id": "item_aura:trinket:exact",
+    "category": "trinket",
+    "format": "ItemModifier_Exact",
+    "tier": 0,
+    "type": "auratype:stats_change",
+    "effects": "CritDamage: Additive=0.05"
+  },
+  {
+    "id": "item_aura:trinket:assassins",
+    "category": "trinket",
+    "format": "ItemModifier_Assassins",
+    "tier": 0,
+    "type": "auratype:stats_change",
+    "effects": "CritDamage: Additive=0.1"
+  },
+  {
+    "id": "item_aura:trinket:grasping",
+    "category": "trinket",
+    "format": "ItemModifier_Grasping",
+    "tier": 0,
+    "type": "auratype:stats_change",
+    "effects": "AttackRangeModifier: Additive=0.05"
+  },
+  {
+    "id": "item_aura:trinket:reaching",
+    "category": "trinket",
+    "format": "ItemModifier_Reaching",
+    "tier": 0,
+    "type": "auratype:stats_change",
+    "effects": "AttackRangeModifier: Additive=0.1"
+  },
+  {
+    "id": "item_aura:trinket:fast",
+    "category": "trinket",
+    "format": "ItemModifier_Fast",
+    "tier": 0,
+    "type": "auratype:stats_change",
+    "effects": "AttackSpeed: Additive=0.02"
+  },
+  {
+    "id": "item_aura:trinket:quick",
+    "category": "trinket",
+    "format": "ItemModifier_Quick",
+    "tier": 0,
+    "type": "auratype:stats_change",
+    "effects": "AttackSpeed: Additive=0.04"
+  }
+]

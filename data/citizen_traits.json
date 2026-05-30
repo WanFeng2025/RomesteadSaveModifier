@@ -1,0 +1,598 @@
+[
+  {
+    "Id": "citizen_aura:buff:efficiency",
+    "Category": "Trait",
+    "Effects": [
+      {
+        "StatId": "Citizen_Efficiency",
+        "Additive": 4,
+        "Multiplier": 0,
+        "BaseMultiplier": 0,
+        "AdditiveMultiplier": 0,
+        "BonusMultiplier": 0
+      }
+    ]
+  },
+  {
+    "Id": "citizen_aura:debuff:efficiency",
+    "Category": "Trait",
+    "Effects": [
+      {
+        "StatId": "Citizen_Efficiency",
+        "Additive": -4,
+        "Multiplier": 0,
+        "BaseMultiplier": 0,
+        "AdditiveMultiplier": 0,
+        "BonusMultiplier": 0
+      }
+    ]
+  },
+  {
+    "Id": "citizen_aura:buff:expertise",
+    "Category": "Trait",
+    "Effects": [
+      {
+        "StatId": "Citizen_Expertise",
+        "Additive": 3,
+        "Multiplier": 0,
+        "BaseMultiplier": 0,
+        "AdditiveMultiplier": 0,
+        "BonusMultiplier": 0
+      }
+    ]
+  },
+  {
+    "Id": "citizen_aura:debuff:expertise",
+    "Category": "Trait",
+    "Effects": [
+      {
+        "StatId": "Citizen_Expertise",
+        "Additive": -2,
+        "Multiplier": 0,
+        "BaseMultiplier": 0,
+        "AdditiveMultiplier": 0,
+        "BonusMultiplier": 0
+      }
+    ]
+  },
+  {
+    "Id": "citizen_aura:buff:experience",
+    "Category": "Trait",
+    "Effects": [
+      {
+        "StatId": "Citizen_ExperienceGain",
+        "Additive": 0.3,
+        "Multiplier": 0,
+        "BaseMultiplier": 0,
+        "AdditiveMultiplier": 0,
+        "BonusMultiplier": 0
+      }
+    ]
+  },
+  {
+    "Id": "citizen_aura:debuff:experience",
+    "Category": "Trait",
+    "Effects": [
+      {
+        "StatId": "Citizen_ExperienceGain",
+        "Additive": -0.3,
+        "Multiplier": 0,
+        "BaseMultiplier": 0,
+        "AdditiveMultiplier": 0,
+        "BonusMultiplier": 0
+      }
+    ]
+  },
+  {
+    "Id": "citizen_aura:buff:loyalty",
+    "Category": "Trait",
+    "Effects": [
+      {
+        "StatId": "Citizen_LoyaltyGain",
+        "Additive": 0.3,
+        "Multiplier": 0,
+        "BaseMultiplier": 0,
+        "AdditiveMultiplier": 0,
+        "BonusMultiplier": 0
+      }
+    ]
+  },
+  {
+    "Id": "citizen_aura:debuff:loyalty",
+    "Category": "Trait",
+    "Effects": [
+      {
+        "StatId": "Citizen_LoyaltyGain",
+        "Additive": -0.5,
+        "Multiplier": 0,
+        "BaseMultiplier": 0,
+        "AdditiveMultiplier": 0,
+        "BonusMultiplier": 0
+      }
+    ]
+  },
+  {
+    "Id": "citizen_aura:buff:happiness",
+    "Category": "Trait",
+    "Effects": [
+      {
+        "StatId": "Citizen_Happiness",
+        "Additive": 3,
+        "Multiplier": 0,
+        "BaseMultiplier": 0,
+        "AdditiveMultiplier": 0,
+        "BonusMultiplier": 0
+      }
+    ]
+  },
+  {
+    "Id": "citizen_aura:debuff:happiness",
+    "Category": "Trait",
+    "Effects": [
+      {
+        "StatId": "Citizen_Happiness",
+        "Additive": -3,
+        "Multiplier": 0,
+        "BaseMultiplier": 0,
+        "AdditiveMultiplier": 0,
+        "BonusMultiplier": 0
+      }
+    ]
+  },
+  {
+    "Id": "citizen_aura:debuff:food",
+    "Category": "Trait",
+    "Effects": [
+      {
+        "StatId": "Citizen_FoodCost",
+        "Additive": 10,
+        "Multiplier": 0,
+        "BaseMultiplier": 0,
+        "AdditiveMultiplier": 0,
+        "BonusMultiplier": 0
+      }
+    ]
+  },
+  {
+    "Id": "citizen_aura:debuff:anxiety",
+    "Category": "Trait",
+    "Effects": [
+      {
+        "StatId": "Citizen_Happiness",
+        "Additive": -2,
+        "Multiplier": 0,
+        "BaseMultiplier": 0,
+        "AdditiveMultiplier": 0,
+        "BonusMultiplier": 0
+      },
+      {
+        "StatId": "Citizen_LoyaltyGain",
+        "Additive": -0.2,
+        "Multiplier": 0,
+        "BaseMultiplier": 0,
+        "AdditiveMultiplier": 0,
+        "BonusMultiplier": 0
+      }
+    ]
+  },
+  {
+    "Id": "citizen_aura:loyalty:1",
+    "Category": "Loyalty",
+    "Effects": [
+      {
+        "StatId": "Citizen_Happiness",
+        "Additive": 1,
+        "Multiplier": 0,
+        "BaseMultiplier": 0,
+        "AdditiveMultiplier": 0,
+        "BonusMultiplier": 0
+      },
+      {
+        "StatId": "Citizen_ExperienceGain",
+        "Additive": 0.1,
+        "Multiplier": 0,
+        "BaseMultiplier": 0,
+        "AdditiveMultiplier": 0,
+        "BonusMultiplier": 0
+      }
+    ]
+  },
+  {
+    "Id": "citizen_aura:loyalty:2",
+    "Category": "Loyalty",
+    "Effects": [
+      {
+        "StatId": "Citizen_Happiness",
+        "Additive": 2,
+        "Multiplier": 0,
+        "BaseMultiplier": 0,
+        "AdditiveMultiplier": 0,
+        "BonusMultiplier": 0
+      },
+      {
+        "StatId": "Citizen_Expertise",
+        "Additive": 0.5,
+        "Multiplier": 0,
+        "BaseMultiplier": 0,
+        "AdditiveMultiplier": 0,
+        "BonusMultiplier": 0
+      },
+      {
+        "StatId": "Citizen_ExperienceGain",
+        "Additive": 0.15,
+        "Multiplier": 0,
+        "BaseMultiplier": 0,
+        "AdditiveMultiplier": 0,
+        "BonusMultiplier": 0
+      }
+    ]
+  },
+  {
+    "Id": "citizen_aura:loyalty:3",
+    "Category": "Loyalty",
+    "Effects": [
+      {
+        "StatId": "Citizen_Happiness",
+        "Additive": 2.5,
+        "Multiplier": 0,
+        "BaseMultiplier": 0,
+        "AdditiveMultiplier": 0,
+        "BonusMultiplier": 0
+      },
+      {
+        "StatId": "Citizen_Expertise",
+        "Additive": 1,
+        "Multiplier": 0,
+        "BaseMultiplier": 0,
+        "AdditiveMultiplier": 0,
+        "BonusMultiplier": 0
+      },
+      {
+        "StatId": "Citizen_ExperienceGain",
+        "Additive": 0.2,
+        "Multiplier": 0,
+        "BaseMultiplier": 0,
+        "AdditiveMultiplier": 0,
+        "BonusMultiplier": 0
+      }
+    ]
+  },
+  {
+    "Id": "citizen_aura:loyalty:4",
+    "Category": "Loyalty",
+    "Effects": [
+      {
+        "StatId": "Citizen_Happiness",
+        "Additive": 3,
+        "Multiplier": 0,
+        "BaseMultiplier": 0,
+        "AdditiveMultiplier": 0,
+        "BonusMultiplier": 0
+      },
+      {
+        "StatId": "Citizen_Expertise",
+        "Additive": 1,
+        "Multiplier": 0,
+        "BaseMultiplier": 0,
+        "AdditiveMultiplier": 0,
+        "BonusMultiplier": 0
+      },
+      {
+        "StatId": "Citizen_ExperienceGain",
+        "Additive": 0.3,
+        "Multiplier": 0,
+        "BaseMultiplier": 0,
+        "AdditiveMultiplier": 0,
+        "BonusMultiplier": 0
+      }
+    ]
+  },
+  {
+    "Id": "citizen_aura:wine:0",
+    "Category": "Food/Drink",
+    "Effects": [
+      {
+        "StatId": "Citizen_Happiness",
+        "Additive": 2,
+        "Multiplier": 0,
+        "BaseMultiplier": 0,
+        "AdditiveMultiplier": 0,
+        "BonusMultiplier": 0
+      },
+      {
+        "StatId": "Citizen_LoyaltyGain",
+        "Additive": 0.05,
+        "Multiplier": 0,
+        "BaseMultiplier": 0,
+        "AdditiveMultiplier": 0,
+        "BonusMultiplier": 0
+      },
+      {
+        "StatId": "Citizen_Efficiency",
+        "Additive": -1,
+        "Multiplier": 0,
+        "BaseMultiplier": 0,
+        "AdditiveMultiplier": 0,
+        "BonusMultiplier": 0
+      }
+    ]
+  },
+  {
+    "Id": "citizen_aura:gift:0",
+    "Category": "Gift",
+    "Effects": [
+      {
+        "StatId": "Citizen_Happiness",
+        "Additive": 1,
+        "Multiplier": 0,
+        "BaseMultiplier": 0,
+        "AdditiveMultiplier": 0,
+        "BonusMultiplier": 0
+      }
+    ]
+  },
+  {
+    "Id": "citizen_aura:gift:1",
+    "Category": "Gift",
+    "Effects": [
+      {
+        "StatId": "Citizen_Happiness",
+        "Additive": 1,
+        "Multiplier": 0,
+        "BaseMultiplier": 0,
+        "AdditiveMultiplier": 0,
+        "BonusMultiplier": 0
+      },
+      {
+        "StatId": "Citizen_LoyaltyGain",
+        "Additive": 0.5,
+        "Multiplier": 0,
+        "BaseMultiplier": 0,
+        "AdditiveMultiplier": 0,
+        "BonusMultiplier": 0
+      }
+    ]
+  },
+  {
+    "Id": "citizen_aura:gift:2",
+    "Category": "Gift",
+    "Effects": [
+      {
+        "StatId": "Citizen_Happiness",
+        "Additive": 2,
+        "Multiplier": 0,
+        "BaseMultiplier": 0,
+        "AdditiveMultiplier": 0,
+        "BonusMultiplier": 0
+      }
+    ]
+  },
+  {
+    "Id": "citizen_aura:gift:bad",
+    "Category": "Gift",
+    "Effects": [
+      {
+        "StatId": "Citizen_Happiness",
+        "Additive": -1,
+        "Multiplier": 0,
+        "BaseMultiplier": 0,
+        "AdditiveMultiplier": 0,
+        "BonusMultiplier": 0
+      }
+    ]
+  },
+  {
+    "Id": "citizen_aura:gift:food_cost_reduction",
+    "Category": "Gift",
+    "Effects": [
+      {
+        "StatId": "Citizen_FoodCost",
+        "Additive": 0,
+        "Multiplier": -0.2,
+        "BaseMultiplier": 0,
+        "AdditiveMultiplier": 0,
+        "BonusMultiplier": 0
+      }
+    ]
+  },
+  {
+    "Id": "citizen_aura:injury:broken_arm",
+    "Category": "Injury",
+    "Effects": [
+      {
+        "StatId": "Citizen_Efficiency",
+        "Additive": 0,
+        "Multiplier": -0.5,
+        "BaseMultiplier": 0,
+        "AdditiveMultiplier": 0,
+        "BonusMultiplier": 0
+      }
+    ]
+  },
+  {
+    "Id": "citizen_aura:injury:broken_leg",
+    "Category": "Injury",
+    "Effects": [
+      {
+        "StatId": "Citizen_Efficiency",
+        "Additive": 0,
+        "Multiplier": -0.3,
+        "BaseMultiplier": 0,
+        "AdditiveMultiplier": 0,
+        "BonusMultiplier": 0
+      }
+    ]
+  },
+  {
+    "Id": "citizen_aura:injury:broken_rib",
+    "Category": "Injury",
+    "Effects": [
+      {
+        "StatId": "Citizen_Efficiency",
+        "Additive": 0,
+        "Multiplier": -0.25,
+        "BaseMultiplier": 0,
+        "AdditiveMultiplier": 0,
+        "BonusMultiplier": 0
+      },
+      {
+        "StatId": "Citizen_ExperienceGain",
+        "Additive": 0,
+        "Multiplier": -0.25,
+        "BaseMultiplier": 0,
+        "AdditiveMultiplier": 0,
+        "BonusMultiplier": 0
+      }
+    ]
+  },
+  {
+    "Id": "citizen_aura:injury:concussion",
+    "Category": "Injury",
+    "Effects": [
+      {
+        "StatId": "Citizen_ExperienceGain",
+        "Additive": 0,
+        "Multiplier": -0.5,
+        "BaseMultiplier": 0,
+        "AdditiveMultiplier": 0,
+        "BonusMultiplier": 0
+      },
+      {
+        "StatId": "Citizen_Expertise",
+        "Additive": 0,
+        "Multiplier": -0.5,
+        "BaseMultiplier": 0,
+        "AdditiveMultiplier": 0,
+        "BonusMultiplier": 0
+      }
+    ]
+  },
+  {
+    "Id": "citizen_aura:injury:infected_wound",
+    "Category": "Injury",
+    "Effects": [
+      {
+        "StatId": "Citizen_FoodCost",
+        "Additive": 1,
+        "Multiplier": 0,
+        "BaseMultiplier": 0,
+        "AdditiveMultiplier": 0,
+        "BonusMultiplier": 0
+      },
+      {
+        "StatId": "Citizen_Happiness",
+        "Additive": 0,
+        "Multiplier": -0.25,
+        "BaseMultiplier": 0,
+        "AdditiveMultiplier": 0,
+        "BonusMultiplier": 0
+      }
+    ]
+  },
+  {
+    "Id": "citizen_aura:injury:tetanus",
+    "Category": "Injury",
+    "Effects": [
+      {
+        "StatId": "Citizen_Happiness",
+        "Additive": 0,
+        "Multiplier": -0.25,
+        "BaseMultiplier": 0,
+        "AdditiveMultiplier": 0,
+        "BonusMultiplier": 0
+      }
+    ]
+  },
+  {
+    "Id": "citizen_aura:injury:tinnitus",
+    "Category": "Injury",
+    "Effects": [
+      {
+        "StatId": "Citizen_Happiness",
+        "Additive": 0,
+        "Multiplier": -0.5,
+        "BaseMultiplier": 0,
+        "AdditiveMultiplier": 0,
+        "BonusMultiplier": 0
+      }
+    ]
+  },
+  {
+    "Id": "citizen_aura:injury:wounded_eye",
+    "Category": "Injury",
+    "Effects": [
+      {
+        "StatId": "Citizen_Efficiency",
+        "Additive": 0,
+        "Multiplier": -0.5,
+        "BaseMultiplier": 0,
+        "AdditiveMultiplier": 0,
+        "BonusMultiplier": 0
+      },
+      {
+        "StatId": "Citizen_Expertise",
+        "Additive": 0,
+        "Multiplier": -0.25,
+        "BaseMultiplier": 0,
+        "AdditiveMultiplier": 0,
+        "BonusMultiplier": 0
+      }
+    ]
+  },
+  {
+    "Id": "citizen_aura:buff:cornucopia",
+    "Category": "Buff",
+    "Effects": [
+      {
+        "StatId": "Citizen_FoodCost",
+        "Additive": 0,
+        "Multiplier": -1,
+        "BaseMultiplier": 0,
+        "AdditiveMultiplier": 0,
+        "BonusMultiplier": 0
+      }
+    ]
+  },
+  {
+    "Id": "citizen_aura:buff:venus_embrace",
+    "Category": "Buff",
+    "Effects": [
+      {
+        "StatId": "Citizen_Efficiency",
+        "Additive": 2,
+        "Multiplier": 0,
+        "BaseMultiplier": 0,
+        "AdditiveMultiplier": 0,
+        "BonusMultiplier": 0
+      }
+    ]
+  },
+  {
+    "Id": "citizen_aura:buff:venus_citizen_expertise",
+    "Category": "Buff",
+    "Effects": [
+      {
+        "StatId": "Citizen_Expertise",
+        "Additive": 1,
+        "Multiplier": 0,
+        "BaseMultiplier": 0,
+        "AdditiveMultiplier": 0,
+        "BonusMultiplier": 0
+      }
+    ]
+  },
+  {
+    "Id": "citizen_aura:buff:town_defence",
+    "Category": "Buff",
+    "Effects": [
+      {
+        "StatId": "Citizen_Happiness",
+        "Additive": 1,
+        "Multiplier": 0,
+        "BaseMultiplier": 0,
+        "AdditiveMultiplier": 0,
+        "BonusMultiplier": 0
+      }
+    ]
+  }
+]

@@ -1,0 +1,1484 @@
+[
+  {
+    "Key": "citizen_aura:buff:cornucopia*citizenaura:name",
+    "En": "Cornucopia",
+    "ZhHans": "丰饶号角",
+    "ZhHant": "豐饒號角"
+  },
+  {
+    "Key": "citizen_aura:buff:efficiency*citizenaura:name",
+    "En": "Quick",
+    "ZhHans": "雷厉风行",
+    "ZhHant": "雷厲風行"
+  },
+  {
+    "Key": "citizen_aura:buff:experience*citizenaura:name",
+    "En": "Focused",
+    "ZhHans": "心无旁骛",
+    "ZhHant": "心無旁騖"
+  },
+  {
+    "Key": "citizen_aura:buff:expertise*citizenaura:name",
+    "En": "Meticulous",
+    "ZhHans": "一丝不苟",
+    "ZhHant": "一絲不苟"
+  },
+  {
+    "Key": "citizen_aura:buff:happiness*citizenaura:name",
+    "En": "Excited",
+    "ZhHans": "活力四射",
+    "ZhHant": "活力四射"
+  },
+  {
+    "Key": "citizen_aura:buff:loyalty*citizenaura:name",
+    "En": "Impressionable",
+    "ZhHans": "人云亦云",
+    "ZhHant": "人云亦云"
+  },
+  {
+    "Key": "citizen_aura:buff:town_defence*citizenaura:name",
+    "En": "Well Defended",
+    "ZhHans": "固若金汤",
+    "ZhHant": "Well Defended"
+  },
+  {
+    "Key": "citizen_aura:buff:venus_citizen_expertise*citizenaura:name",
+    "En": "Prosperous Ideals",
+    "ZhHans": "繁荣理想",
+    "ZhHant": "繁榮理想"
+  },
+  {
+    "Key": "citizen_aura:buff:venus_embrace*citizenaura:name",
+    "En": "Venus' Embrace",
+    "ZhHans": "维纳斯的拥抱",
+    "ZhHant": "維納斯的擁抱"
+  },
+  {
+    "Key": "citizen_aura:debuff:anxiety*citizenaura:name",
+    "En": "Anxiety",
+    "ZhHans": "忧心忡忡",
+    "ZhHant": "憂心忡忡"
+  },
+  {
+    "Key": "citizen_aura:debuff:efficiency*citizenaura:name",
+    "En": "Tentative",
+    "ZhHans": "犹豫不决",
+    "ZhHant": "猶豫不決"
+  },
+  {
+    "Key": "citizen_aura:debuff:experience*citizenaura:name",
+    "En": "Unfocused",
+    "ZhHans": "心不在焉",
+    "ZhHant": "心不在焉"
+  },
+  {
+    "Key": "citizen_aura:debuff:expertise*citizenaura:name",
+    "En": "Sloppy",
+    "ZhHans": "马马虎虎",
+    "ZhHant": "馬馬虎虎"
+  },
+  {
+    "Key": "citizen_aura:debuff:food*citizenaura:name",
+    "En": "Gluttonous",
+    "ZhHans": "暴饮暴食",
+    "ZhHant": "暴飲暴食"
+  },
+  {
+    "Key": "citizen_aura:debuff:happiness*citizenaura:name",
+    "En": "Depressed",
+    "ZhHans": "郁郁寡欢",
+    "ZhHant": "鬱鬱寡歡"
+  },
+  {
+    "Key": "citizen_aura:debuff:loyalty*citizenaura:name",
+    "En": "Disloyal",
+    "ZhHans": "见异思迁",
+    "ZhHant": "見異思遷"
+  },
+  {
+    "Key": "citizen_aura:gift:0*citizenaura:name",
+    "En": "Nice Gift",
+    "ZhHans": "良赠好礼",
+    "ZhHant": "良贈好禮"
+  },
+  {
+    "Key": "citizen_aura:gift:1*citizenaura:name",
+    "En": "Great Gift",
+    "ZhHans": "怡人佳礼",
+    "ZhHant": "怡人佳禮"
+  },
+  {
+    "Key": "citizen_aura:gift:2*citizenaura:name",
+    "En": "Beautiful Gift",
+    "ZhHans": "精美臻礼",
+    "ZhHant": "精美臻禮"
+  },
+  {
+    "Key": "citizen_aura:gift:bad*citizenaura:name",
+    "En": "Hostile Gift",
+    "ZhHans": "恶毒歹礼",
+    "ZhHant": "惡毒歹禮"
+  },
+  {
+    "Key": "citizen_aura:gift:food_cost_reduction*citizenaura:name",
+    "En": "Satiated",
+    "ZhHans": "吃饱喝足",
+    "ZhHant": "吃飽喝足"
+  },
+  {
+    "Key": "citizen_aura:injury:broken_arm*citizenaura:name",
+    "En": "Broken Arm",
+    "ZhHans": "手臂骨折",
+    "ZhHant": "手臂骨折"
+  },
+  {
+    "Key": "citizen_aura:injury:broken_leg*citizenaura:name",
+    "En": "Broken Leg",
+    "ZhHans": "腿部骨折",
+    "ZhHant": "腿部骨折"
+  },
+  {
+    "Key": "citizen_aura:injury:broken_rib*citizenaura:name",
+    "En": "Broken Rib",
+    "ZhHans": "肋骨骨折",
+    "ZhHant": "肋骨骨折"
+  },
+  {
+    "Key": "citizen_aura:injury:concussion*citizenaura:name",
+    "En": "Concussion",
+    "ZhHans": "脑震荡",
+    "ZhHant": "腦震盪"
+  },
+  {
+    "Key": "citizen_aura:injury:infected_wound*citizenaura:name",
+    "En": "Infected Wound",
+    "ZhHans": "伤口感染",
+    "ZhHant": "傷口感染"
+  },
+  {
+    "Key": "citizen_aura:injury:tetanus*citizenaura:name",
+    "En": "Tetanus",
+    "ZhHans": "破伤风",
+    "ZhHant": "破傷風"
+  },
+  {
+    "Key": "citizen_aura:injury:tinnitus*citizenaura:name",
+    "En": "Tinnitus",
+    "ZhHans": "耳鸣",
+    "ZhHant": "耳鳴"
+  },
+  {
+    "Key": "citizen_aura:injury:wounded_eye*citizenaura:name",
+    "En": "Wounded Eye",
+    "ZhHans": "眼部受伤",
+    "ZhHant": "眼部受傷"
+  },
+  {
+    "Key": "citizen_aura:loyalty:1*citizenaura:name",
+    "En": "Loyalty - Level 1",
+    "ZhHans": "忠诚度 - 1级",
+    "ZhHant": "忠誠度 - 1級"
+  },
+  {
+    "Key": "citizen_aura:loyalty:2*citizenaura:name",
+    "En": "Loyalty - Level 2",
+    "ZhHans": "忠诚度 - 2级",
+    "ZhHant": "忠誠度 - 2級"
+  },
+  {
+    "Key": "citizen_aura:loyalty:3*citizenaura:name",
+    "En": "Loyalty - Level 3",
+    "ZhHans": "忠诚度 - 3级",
+    "ZhHant": "忠誠度 - 3級"
+  },
+  {
+    "Key": "citizen_aura:loyalty:4*citizenaura:name",
+    "En": "Loyalty - Level 4",
+    "ZhHans": "忠诚度 - 4级",
+    "ZhHant": "忠誠度 - 4級"
+  },
+  {
+    "Key": "citizen_aura:wine:0*citizenaura:name",
+    "En": "High Spirits",
+    "ZhHans": "情绪高涨",
+    "ZhHant": "情緒高漲"
+  },
+  {
+    "Key": "Citizen_Efficiency*stats:name",
+    "En": "Efficiency",
+    "ZhHans": "效率",
+    "ZhHant": "效率"
+  },
+  {
+    "Key": "Citizen_ExperienceGain*stats:name",
+    "En": "Experience gain",
+    "ZhHans": "经验值收益",
+    "ZhHant": "經驗值收益"
+  },
+  {
+    "Key": "Citizen_Expertise*stats:name",
+    "En": "Expertise",
+    "ZhHans": "专业知识",
+    "ZhHant": "專業知識"
+  },
+  {
+    "Key": "Citizen_FoodCost*stats:name",
+    "En": "Food cost",
+    "ZhHans": "食物消耗",
+    "ZhHant": "食物消耗"
+  },
+  {
+    "Key": "Citizen_Happiness*stats:name",
+    "En": "Happiness",
+    "ZhHans": "幸福度",
+    "ZhHant": "幸福度"
+  },
+  {
+    "Key": "Citizen_LoyaltyGain*stats:name",
+    "En": "Loyalty gain",
+    "ZhHans": "忠诚度收益",
+    "ZhHant": "忠誠度收益"
+  },
+  {
+    "Key": "female_name_0",
+    "En": "Aelia",
+    "ZhHans": "艾莉娅",
+    "ZhHant": "艾莉婭"
+  },
+  {
+    "Key": "female_name_1",
+    "En": "Aemilia",
+    "ZhHans": "艾米莉娅",
+    "ZhHant": "艾米莉婭"
+  },
+  {
+    "Key": "female_name_10",
+    "En": "Caelina",
+    "ZhHans": "凯利娜",
+    "ZhHant": "凱利娜"
+  },
+  {
+    "Key": "female_name_11",
+    "En": "Caesonia",
+    "ZhHans": "凯索尼娅",
+    "ZhHant": "凱索尼婭"
+  },
+  {
+    "Key": "female_name_12",
+    "En": "Calpurnia",
+    "ZhHans": "卡尔普尔尼娅",
+    "ZhHant": "卡爾普爾尼婭"
+  },
+  {
+    "Key": "female_name_13",
+    "En": "Camilla",
+    "ZhHans": "卡米拉",
+    "ZhHant": "卡蜜拉"
+  },
+  {
+    "Key": "female_name_14",
+    "En": "Cassia",
+    "ZhHans": "卡西娅",
+    "ZhHant": "凱西婭"
+  },
+  {
+    "Key": "female_name_15",
+    "En": "Claudia",
+    "ZhHans": "克劳迪娅",
+    "ZhHant": "克勞迪婭"
+  },
+  {
+    "Key": "female_name_16",
+    "En": "Cloelia",
+    "ZhHans": "克勒利娅",
+    "ZhHant": "克勒利婭"
+  },
+  {
+    "Key": "female_name_17",
+    "En": "Cornelia",
+    "ZhHans": "科尔内利娅",
+    "ZhHant": "科爾內利婭"
+  },
+  {
+    "Key": "female_name_18",
+    "En": "Crispina",
+    "ZhHans": "克里斯皮娜",
+    "ZhHant": "克裡斯皮娜"
+  },
+  {
+    "Key": "female_name_19",
+    "En": "Decima",
+    "ZhHans": "德西玛",
+    "ZhHant": "德西瑪"
+  },
+  {
+    "Key": "female_name_2",
+    "En": "Agrippina",
+    "ZhHans": "阿格里皮娜",
+    "ZhHant": "阿格裡皮娜"
+  },
+  {
+    "Key": "female_name_20",
+    "En": "Domitilla",
+    "ZhHans": "多米蒂拉",
+    "ZhHant": "多米蒂拉"
+  },
+  {
+    "Key": "female_name_21",
+    "En": "Drusilla",
+    "ZhHans": "德鲁西拉",
+    "ZhHant": "德魯西拉"
+  },
+  {
+    "Key": "female_name_22",
+    "En": "Fabia",
+    "ZhHans": "法比娅",
+    "ZhHant": "法比婭"
+  },
+  {
+    "Key": "female_name_23",
+    "En": "Faustina",
+    "ZhHans": "福斯蒂娜",
+    "ZhHant": "福斯蒂娜"
+  },
+  {
+    "Key": "female_name_24",
+    "En": "Flaviana",
+    "ZhHans": "弗拉维娅娜",
+    "ZhHant": "弗拉維婭娜"
+  },
+  {
+    "Key": "female_name_25",
+    "En": "Floriana",
+    "ZhHans": "弗洛丽娅娜",
+    "ZhHant": "弗洛麗婭娜"
+  },
+  {
+    "Key": "female_name_26",
+    "En": "Gaia",
+    "ZhHans": "盖娅",
+    "ZhHant": "蓋婭"
+  },
+  {
+    "Key": "female_name_27",
+    "En": "Galla",
+    "ZhHans": "加拉",
+    "ZhHant": "加拉"
+  },
+  {
+    "Key": "female_name_28",
+    "En": "Helvia",
+    "ZhHans": "赫尔维娅",
+    "ZhHant": "赫爾維婭"
+  },
+  {
+    "Key": "female_name_29",
+    "En": "Herminia",
+    "ZhHans": "赫尔米尼娅",
+    "ZhHant": "赫爾米尼婭"
+  },
+  {
+    "Key": "female_name_3",
+    "En": "Alba",
+    "ZhHans": "阿尔巴",
+    "ZhHant": "阿爾巴"
+  },
+  {
+    "Key": "female_name_30",
+    "En": "Hilaria",
+    "ZhHans": "希拉莉娅",
+    "ZhHant": "希拉莉婭"
+  },
+  {
+    "Key": "female_name_31",
+    "En": "Horatia",
+    "ZhHans": "霍拉提娅",
+    "ZhHant": "霍拉提婭"
+  },
+  {
+    "Key": "female_name_32",
+    "En": "Hortensia",
+    "ZhHans": "霍尔滕西亚",
+    "ZhHant": "霍爾滕西亞"
+  },
+  {
+    "Key": "female_name_33",
+    "En": "Julia",
+    "ZhHans": "朱莉娅",
+    "ZhHant": "朱麗亞"
+  },
+  {
+    "Key": "female_name_34",
+    "En": "Laelia",
+    "ZhHans": "莱莉娅",
+    "ZhHant": "萊莉婭"
+  },
+  {
+    "Key": "female_name_35",
+    "En": "Laurentia",
+    "ZhHans": "劳伦提娅",
+    "ZhHant": "勞倫提婭"
+  },
+  {
+    "Key": "female_name_36",
+    "En": "Livia",
+    "ZhHans": "利维娅",
+    "ZhHant": "利維婭"
+  },
+  {
+    "Key": "female_name_37",
+    "En": "Liviana",
+    "ZhHans": "利维亚娜",
+    "ZhHant": "利維亞娜"
+  },
+  {
+    "Key": "female_name_38",
+    "En": "Longina",
+    "ZhHans": "隆吉娜",
+    "ZhHant": "隆吉娜"
+  },
+  {
+    "Key": "female_name_39",
+    "En": "Lucia",
+    "ZhHans": "卢西娅",
+    "ZhHant": "盧西婭"
+  },
+  {
+    "Key": "female_name_4",
+    "En": "Antonia",
+    "ZhHans": "安东尼娅",
+    "ZhHant": "安東尼婭"
+  },
+  {
+    "Key": "female_name_40",
+    "En": "Lucretia",
+    "ZhHans": "卢克雷提娅",
+    "ZhHant": "盧克雷提婭"
+  },
+  {
+    "Key": "female_name_41",
+    "En": "Marcella",
+    "ZhHans": "马尔切拉",
+    "ZhHant": "瑪律切拉"
+  },
+  {
+    "Key": "female_name_42",
+    "En": "Marcia",
+    "ZhHans": "马尔西亚",
+    "ZhHant": "瑪律西亞"
+  },
+  {
+    "Key": "female_name_43",
+    "En": "Marina",
+    "ZhHans": "玛丽娜",
+    "ZhHant": "瑪麗娜"
+  },
+  {
+    "Key": "female_name_44",
+    "En": "Maxima",
+    "ZhHans": "马克西玛",
+    "ZhHant": "馬克西瑪"
+  },
+  {
+    "Key": "female_name_45",
+    "En": "Octavia",
+    "ZhHans": "奥克塔维娅",
+    "ZhHant": "奧克塔維婭"
+  },
+  {
+    "Key": "female_name_46",
+    "En": "Paulina",
+    "ZhHans": "保利娜",
+    "ZhHant": "保利娜"
+  },
+  {
+    "Key": "female_name_47",
+    "En": "Petronia",
+    "ZhHans": "佩特罗尼娅",
+    "ZhHant": "佩特羅尼婭"
+  },
+  {
+    "Key": "female_name_48",
+    "En": "Pomponia",
+    "ZhHans": "庞庞尼娅",
+    "ZhHant": "龐龐尼婭"
+  },
+  {
+    "Key": "female_name_49",
+    "En": "Porcia",
+    "ZhHans": "波尔恰",
+    "ZhHant": "波爾恰"
+  },
+  {
+    "Key": "female_name_5",
+    "En": "Aquilina",
+    "ZhHans": "阿奎莉娜",
+    "ZhHant": "阿奎莉娜"
+  },
+  {
+    "Key": "female_name_50",
+    "En": "Priscilla",
+    "ZhHans": "普里西拉",
+    "ZhHant": "普裡西拉"
+  },
+  {
+    "Key": "female_name_51",
+    "En": "Quintina",
+    "ZhHans": "昆蒂娜",
+    "ZhHant": "昆蒂娜"
+  },
+  {
+    "Key": "female_name_52",
+    "En": "Rufina",
+    "ZhHans": "鲁菲娜",
+    "ZhHant": "魯菲娜"
+  },
+  {
+    "Key": "female_name_53",
+    "En": "Sabina",
+    "ZhHans": "萨比娜",
+    "ZhHant": "薩比娜"
+  },
+  {
+    "Key": "female_name_54",
+    "En": "Saturnia",
+    "ZhHans": "萨图尔尼娅",
+    "ZhHant": "薩圖爾尼婭"
+  },
+  {
+    "Key": "female_name_55",
+    "En": "Septima",
+    "ZhHans": "塞普蒂玛",
+    "ZhHant": "塞普蒂瑪"
+  },
+  {
+    "Key": "female_name_56",
+    "En": "Severina",
+    "ZhHans": "塞维丽娜",
+    "ZhHant": "塞維麗娜"
+  },
+  {
+    "Key": "female_name_57",
+    "En": "Silvia",
+    "ZhHans": "西尔维娅",
+    "ZhHant": "西爾維婭"
+  },
+  {
+    "Key": "female_name_58",
+    "En": "Tacita",
+    "ZhHans": "塔西塔",
+    "ZhHant": "塔西塔"
+  },
+  {
+    "Key": "female_name_59",
+    "En": "Tatiana",
+    "ZhHans": "塔蒂安娜",
+    "ZhHant": "塔蒂安娜"
+  },
+  {
+    "Key": "female_name_6",
+    "En": "Augusta",
+    "ZhHans": "奥古斯塔",
+    "ZhHant": "奧古斯塔"
+  },
+  {
+    "Key": "female_name_60",
+    "En": "Tertia",
+    "ZhHans": "特尔提娅",
+    "ZhHant": "特爾提婭"
+  },
+  {
+    "Key": "female_name_61",
+    "En": "Titania",
+    "ZhHans": "提塔尼娅",
+    "ZhHant": "提塔尼婭"
+  },
+  {
+    "Key": "female_name_62",
+    "En": "Valentina",
+    "ZhHans": "瓦伦蒂娜",
+    "ZhHant": "瓦倫蒂娜"
+  },
+  {
+    "Key": "female_name_63",
+    "En": "Valeria",
+    "ZhHans": "瓦莱丽娅",
+    "ZhHant": "瓦萊麗婭"
+  },
+  {
+    "Key": "female_name_64",
+    "En": "Varinia",
+    "ZhHans": "瓦里尼娅",
+    "ZhHant": "瓦裡尼婭"
+  },
+  {
+    "Key": "female_name_65",
+    "En": "Vibiana",
+    "ZhHans": "维比安娜",
+    "ZhHant": "維比安娜"
+  },
+  {
+    "Key": "female_name_66",
+    "En": "Vita",
+    "ZhHans": "维塔",
+    "ZhHant": "維塔"
+  },
+  {
+    "Key": "female_name_7",
+    "En": "Aurelia",
+    "ZhHans": "奥雷莉娅",
+    "ZhHant": "奧雷莉婭"
+  },
+  {
+    "Key": "female_name_8",
+    "En": "Aureliana",
+    "ZhHans": "奥雷利亚娜",
+    "ZhHant": "奧雷利亞娜"
+  },
+  {
+    "Key": "female_name_9",
+    "En": "Blandina",
+    "ZhHans": "布兰迪娜",
+    "ZhHant": "布蘭迪娜"
+  },
+  {
+    "Key": "ItemModifier_Angry",
+    "En": "Angry {0}",
+    "ZhHans": "愤怒的{0}",
+    "ZhHant": "憤怒的{0}"
+  },
+  {
+    "Key": "ItemModifier_AntiHex",
+    "En": "Anti-Hex {0}",
+    "ZhHans": "抗魔的{0}",
+    "ZhHant": "抗魔的{0}"
+  },
+  {
+    "Key": "ItemModifier_Assassins",
+    "En": "Assassins {0}",
+    "ZhHans": "刺客的{0}",
+    "ZhHant": "刺客的{0}"
+  },
+  {
+    "Key": "ItemModifier_Blessed",
+    "En": "Blessed {0}",
+    "ZhHans": "赐福的{0}",
+    "ZhHant": "賜福的{0}"
+  },
+  {
+    "Key": "ItemModifier_Blunt",
+    "En": "Blunt {0}",
+    "ZhHans": "钝{0}",
+    "ZhHant": "鈍{0}"
+  },
+  {
+    "Key": "ItemModifier_Bulwark",
+    "En": "Bulwark's {0}",
+    "ZhHans": "堡垒级{0}",
+    "ZhHant": "堡壘級{0}"
+  },
+  {
+    "Key": "ItemModifier_Damaged",
+    "En": "Damaged {0}",
+    "ZhHans": "破损的{0}",
+    "ZhHant": "破損的{0}"
+  },
+  {
+    "Key": "ItemModifier_Defending",
+    "En": "Defending {0}",
+    "ZhHans": "防御的{0}",
+    "ZhHant": "防禦的{0}"
+  },
+  {
+    "Key": "ItemModifier_Dried",
+    "En": "Dried {0}",
+    "ZhHans": "干裂的{0}",
+    "ZhHant": "乾裂的{0}"
+  },
+  {
+    "Key": "ItemModifier_Enduring",
+    "En": "Enduring {0}",
+    "ZhHans": "耐用的{0}",
+    "ZhHant": "耐用的{0}"
+  },
+  {
+    "Key": "ItemModifier_Energetic",
+    "En": "Energetic {0}",
+    "ZhHans": "奋发的{0}",
+    "ZhHant": "奮發的{0}"
+  },
+  {
+    "Key": "ItemModifier_Exact",
+    "En": "Exact {0}",
+    "ZhHans": "精确的{0}",
+    "ZhHant": "精確的{0}"
+  },
+  {
+    "Key": "ItemModifier_Fast",
+    "En": "Fast {0}",
+    "ZhHans": "快速的{0}",
+    "ZhHant": "快速的{0}"
+  },
+  {
+    "Key": "ItemModifier_Forceful",
+    "En": "Forceful {0}",
+    "ZhHans": "强力的{0}",
+    "ZhHant": "強力的{0}"
+  },
+  {
+    "Key": "ItemModifier_Grasping",
+    "En": "Grasping {0}",
+    "ZhHans": "抓取的{0}",
+    "ZhHant": "抓取的{0}"
+  },
+  {
+    "Key": "ItemModifier_Guarding",
+    "En": "Guarding {0}",
+    "ZhHans": "守护的{0}",
+    "ZhHant": "守護的{0}"
+  },
+  {
+    "Key": "ItemModifier_Hardened",
+    "En": "Hardened {0}",
+    "ZhHans": "硬化的{0}",
+    "ZhHant": "硬化的{0}"
+  },
+  {
+    "Key": "ItemModifier_Hasty",
+    "En": "Hasty {0}",
+    "ZhHans": "急速的{0}",
+    "ZhHant": "急速的{0}"
+  },
+  {
+    "Key": "ItemModifier_Hearty",
+    "En": "Hearty {0}",
+    "ZhHans": "健康的{0}",
+    "ZhHant": "健康的{0}"
+  },
+  {
+    "Key": "ItemModifier_Heavy",
+    "En": "Heavy {0}",
+    "ZhHans": "沉重的{0}",
+    "ZhHant": "沉重的{0}"
+  },
+  {
+    "Key": "ItemModifier_Legendary",
+    "En": "Legendary {0}",
+    "ZhHans": "传奇级{0}",
+    "ZhHant": "傳奇級{0}"
+  },
+  {
+    "Key": "ItemModifier_Lively",
+    "En": "Lively {0}",
+    "ZhHans": "灵动的{0}",
+    "ZhHant": "靈動的{0}"
+  },
+  {
+    "Key": "ItemModifier_Lucky",
+    "En": "Lucky {0}",
+    "ZhHans": "幸运的{0}",
+    "ZhHant": "幸運的{0}"
+  },
+  {
+    "Key": "ItemModifier_Masterwork",
+    "En": "Masterwork {0}",
+    "ZhHans": "大师级{0}",
+    "ZhHant": "大師級{0}"
+  },
+  {
+    "Key": "ItemModifier_Piercing",
+    "En": "Piercing {0}",
+    "ZhHans": "穿刺的{0}",
+    "ZhHant": "穿刺的{0}"
+  },
+  {
+    "Key": "ItemModifier_Pointy",
+    "En": "Pointy {0}",
+    "ZhHans": "尖锐的{0}",
+    "ZhHant": "尖銳的{0}"
+  },
+  {
+    "Key": "ItemModifier_Precise",
+    "En": "Precise {0}",
+    "ZhHans": "精准的{0}",
+    "ZhHant": "精准的{0}"
+  },
+  {
+    "Key": "ItemModifier_Pristine",
+    "En": "Pristine {0}",
+    "ZhHans": "完美的{0}",
+    "ZhHant": "完美的{0}"
+  },
+  {
+    "Key": "ItemModifier_Protecting",
+    "En": "Protecting {0}",
+    "ZhHans": "庇护的{0}",
+    "ZhHant": "庇護的{0}"
+  },
+  {
+    "Key": "ItemModifier_Quick",
+    "En": "Quick {0}",
+    "ZhHans": "迅速的{0}",
+    "ZhHant": "迅速的{0}"
+  },
+  {
+    "Key": "ItemModifier_Reaching",
+    "En": "Reaching {0}",
+    "ZhHans": "远触的{0}",
+    "ZhHant": "遠觸的{0}"
+  },
+  {
+    "Key": "ItemModifier_Resilient",
+    "En": "Resilient {0}",
+    "ZhHans": "强固的{0}",
+    "ZhHant": "強固的{0}"
+  },
+  {
+    "Key": "ItemModifier_Rotted",
+    "En": "Rotted {0}",
+    "ZhHans": "腐朽的{0}",
+    "ZhHant": "腐朽的{0}"
+  },
+  {
+    "Key": "ItemModifier_Rusted",
+    "En": "Rusted {0}",
+    "ZhHans": "生锈的{0}",
+    "ZhHant": "生銹的{0}"
+  },
+  {
+    "Key": "ItemModifier_Sacred",
+    "En": "Sacred {0}",
+    "ZhHans": "神圣的{0}",
+    "ZhHant": "神聖的{0}"
+  },
+  {
+    "Key": "ItemModifier_Sharpened",
+    "En": "Sharpened {0}",
+    "ZhHans": "锋利的{0}",
+    "ZhHant": "鋒利的{0}"
+  },
+  {
+    "Key": "ItemModifier_Surefooted",
+    "En": "Surefooted {0}",
+    "ZhHans": "扎实的{0}",
+    "ZhHant": "扎實的{0}"
+  },
+  {
+    "Key": "ItemModifier_Swift",
+    "En": "Swift {0}",
+    "ZhHans": "迅捷的{0}",
+    "ZhHant": "迅捷的{0}"
+  },
+  {
+    "Key": "ItemModifier_Violent",
+    "En": "Violent {0}",
+    "ZhHans": "暴力的{0}",
+    "ZhHant": "暴力的{0}"
+  },
+  {
+    "Key": "ItemModifier_Warding",
+    "En": "Warding {0}",
+    "ZhHans": "护佑的{0}",
+    "ZhHant": "護佑的{0}"
+  },
+  {
+    "Key": "ItemModifier_Weak",
+    "En": "Weak {0}",
+    "ZhHans": "脆弱的{0}",
+    "ZhHant": "脆弱的{0}"
+  },
+  {
+    "Key": "job:baker*job:name",
+    "En": "Baker",
+    "ZhHans": "烘焙师",
+    "ZhHant": "烘焙師"
+  },
+  {
+    "Key": "job:baker*job:name:feminine",
+    "En": "Baker",
+    "ZhHans": "烘焙师",
+    "ZhHant": "烘焙師"
+  },
+  {
+    "Key": "job:blacksmith*job:name",
+    "En": "Blacksmith",
+    "ZhHans": "锻工铺",
+    "ZhHant": "鍛工鋪"
+  },
+  {
+    "Key": "job:blacksmith*job:name:feminine",
+    "En": "Blacksmith",
+    "ZhHans": "锻工铺",
+    "ZhHant": "鍛工鋪"
+  },
+  {
+    "Key": "job:carpenter*job:name",
+    "En": "Carpenter",
+    "ZhHans": "木匠",
+    "ZhHant": "木匠"
+  },
+  {
+    "Key": "job:carpenter*job:name:feminine",
+    "En": "Carpenter",
+    "ZhHans": "木匠",
+    "ZhHant": "木匠"
+  },
+  {
+    "Key": "job:carrier*job:name",
+    "En": "Carrier",
+    "ZhHans": "搬运工 ",
+    "ZhHant": "搬運工 "
+  },
+  {
+    "Key": "job:carrier*job:name:feminine",
+    "En": "Carrier",
+    "ZhHans": "搬运工 ",
+    "ZhHant": "搬運工 "
+  },
+  {
+    "Key": "job:digger*job:name",
+    "En": "Digger",
+    "ZhHans": "挖土工",
+    "ZhHant": "挖土工"
+  },
+  {
+    "Key": "job:digger*job:name:feminine",
+    "En": "Digger",
+    "ZhHans": "挖土工",
+    "ZhHant": "挖土工"
+  },
+  {
+    "Key": "job:farmer*job:name",
+    "En": "Farmer",
+    "ZhHans": "农民",
+    "ZhHant": "農民"
+  },
+  {
+    "Key": "job:farmer*job:name:feminine",
+    "En": "Farmer",
+    "ZhHans": "农民",
+    "ZhHant": "農民"
+  },
+  {
+    "Key": "job:leatherworker*job:name",
+    "En": "Leatherworker",
+    "ZhHans": "制革工坊",
+    "ZhHant": "製革工坊"
+  },
+  {
+    "Key": "job:leatherworker*job:name:feminine",
+    "En": "Leatherworker",
+    "ZhHans": "制革工坊",
+    "ZhHant": "製革工坊"
+  },
+  {
+    "Key": "job:lumberjack*job:name",
+    "En": "Lumberjack",
+    "ZhHans": "伐木工",
+    "ZhHant": "伐木工"
+  },
+  {
+    "Key": "job:lumberjack*job:name:feminine",
+    "En": "Lumberjack",
+    "ZhHans": "伐木工",
+    "ZhHant": "伐木工"
+  },
+  {
+    "Key": "job:merchant*job:name",
+    "En": "Merchant",
+    "ZhHans": "商人",
+    "ZhHant": "商人"
+  },
+  {
+    "Key": "job:merchant*job:name:feminine",
+    "En": "Merchant",
+    "ZhHans": "商人",
+    "ZhHant": "商人"
+  },
+  {
+    "Key": "job:miner*job:name",
+    "En": "Miner",
+    "ZhHans": "矿工",
+    "ZhHant": "礦工"
+  },
+  {
+    "Key": "job:miner*job:name:feminine",
+    "En": "Miner",
+    "ZhHans": "矿工",
+    "ZhHant": "礦工"
+  },
+  {
+    "Key": "job:philosopher*job:name",
+    "En": "Philosopher",
+    "ZhHans": "哲学家",
+    "ZhHant": "哲學家"
+  },
+  {
+    "Key": "job:philosopher*job:name:feminine",
+    "En": "Philosopher",
+    "ZhHans": "哲学家",
+    "ZhHant": "哲學家"
+  },
+  {
+    "Key": "job:potter*job:name",
+    "En": "Potter",
+    "ZhHans": "陶工",
+    "ZhHant": "陶工"
+  },
+  {
+    "Key": "job:potter*job:name:feminine",
+    "En": "Potter",
+    "ZhHans": "陶工",
+    "ZhHant": "陶工"
+  },
+  {
+    "Key": "job:priest*job:name",
+    "En": "Priest",
+    "ZhHans": "牧师",
+    "ZhHant": "牧師"
+  },
+  {
+    "Key": "job:priest*job:name:feminine",
+    "En": "Priestess",
+    "ZhHans": "牧师",
+    "ZhHant": "牧師"
+  },
+  {
+    "Key": "job:sculptor*job:name",
+    "En": "Sculptor",
+    "ZhHans": "雕塑家",
+    "ZhHant": "雕塑師"
+  },
+  {
+    "Key": "job:sculptor*job:name:feminine",
+    "En": "Sculptor",
+    "ZhHans": "雕塑家",
+    "ZhHant": "雕塑師"
+  },
+  {
+    "Key": "job:unemployed*job:name",
+    "En": "Otiosus",
+    "ZhHans": "闲人",
+    "ZhHant": "閒人"
+  },
+  {
+    "Key": "job:unemployed*job:name:feminine",
+    "En": "Otiosus",
+    "ZhHans": "闲人",
+    "ZhHant": "閒人"
+  },
+  {
+    "Key": "male_name_0",
+    "En": "Aelius",
+    "ZhHans": "艾利乌斯",
+    "ZhHant": "艾利烏斯"
+  },
+  {
+    "Key": "male_name_1",
+    "En": "Aemilianus",
+    "ZhHans": "埃米利阿努斯",
+    "ZhHant": "埃米利阿努斯"
+  },
+  {
+    "Key": "male_name_10",
+    "En": "Brutus",
+    "ZhHans": "布鲁图斯",
+    "ZhHant": "布魯圖斯"
+  },
+  {
+    "Key": "male_name_11",
+    "En": "Caelius",
+    "ZhHans": "凯利乌斯",
+    "ZhHant": "凱利烏斯"
+  },
+  {
+    "Key": "male_name_12",
+    "En": "Caesonius",
+    "ZhHans": "凯索尼乌斯",
+    "ZhHant": "凱索尼烏斯"
+  },
+  {
+    "Key": "male_name_13",
+    "En": "Calpurnius",
+    "ZhHans": "卡尔普尔尼乌斯",
+    "ZhHant": "卡爾普爾尼烏斯"
+  },
+  {
+    "Key": "male_name_14",
+    "En": "Camillus",
+    "ZhHans": "卡米卢斯",
+    "ZhHant": "卡米盧斯"
+  },
+  {
+    "Key": "male_name_15",
+    "En": "Cassius",
+    "ZhHans": "卡西乌斯",
+    "ZhHant": "凱西烏斯"
+  },
+  {
+    "Key": "male_name_16",
+    "En": "Claudius",
+    "ZhHans": "克劳狄乌斯",
+    "ZhHant": "克勞狄烏斯"
+  },
+  {
+    "Key": "male_name_17",
+    "En": "Cloelius",
+    "ZhHans": "克勒利乌斯",
+    "ZhHant": "克勒利烏斯"
+  },
+  {
+    "Key": "male_name_18",
+    "En": "Cornelius",
+    "ZhHans": "科尔内利乌斯",
+    "ZhHant": "科爾內利烏斯"
+  },
+  {
+    "Key": "male_name_19",
+    "En": "Crispus",
+    "ZhHans": "克里斯普斯",
+    "ZhHant": "克裡斯普斯"
+  },
+  {
+    "Key": "male_name_2",
+    "En": "Agrippa",
+    "ZhHans": "阿格里帕",
+    "ZhHant": "阿格裡帕"
+  },
+  {
+    "Key": "male_name_20",
+    "En": "Decimus",
+    "ZhHans": "德基穆斯",
+    "ZhHant": "德基穆斯"
+  },
+  {
+    "Key": "male_name_21",
+    "En": "Domitius",
+    "ZhHans": "多米提乌斯",
+    "ZhHant": "多米提烏斯"
+  },
+  {
+    "Key": "male_name_22",
+    "En": "Drusus",
+    "ZhHans": "德鲁苏斯",
+    "ZhHant": "德魯蘇斯"
+  },
+  {
+    "Key": "male_name_23",
+    "En": "Fabian",
+    "ZhHans": "法比安",
+    "ZhHant": "法比安"
+  },
+  {
+    "Key": "male_name_24",
+    "En": "Faustus",
+    "ZhHans": "福斯图斯",
+    "ZhHant": "福斯圖斯"
+  },
+  {
+    "Key": "male_name_25",
+    "En": "Flavius",
+    "ZhHans": "弗拉维乌斯",
+    "ZhHant": "弗拉維烏斯"
+  },
+  {
+    "Key": "male_name_26",
+    "En": "Florus",
+    "ZhHans": "弗洛鲁斯",
+    "ZhHant": "弗洛魯斯"
+  },
+  {
+    "Key": "male_name_27",
+    "En": "Gaius",
+    "ZhHans": "盖乌斯",
+    "ZhHant": "蓋烏斯"
+  },
+  {
+    "Key": "male_name_28",
+    "En": "Gallus",
+    "ZhHans": "加卢斯",
+    "ZhHant": "加盧斯"
+  },
+  {
+    "Key": "male_name_29",
+    "En": "Helvius",
+    "ZhHans": "赫尔维乌斯",
+    "ZhHant": "赫爾維烏斯"
+  },
+  {
+    "Key": "male_name_3",
+    "En": "Albus",
+    "ZhHans": "阿尔布斯",
+    "ZhHant": "阿爾布斯"
+  },
+  {
+    "Key": "male_name_30",
+    "En": "Herminius",
+    "ZhHans": "赫尔米尼乌斯",
+    "ZhHant": "赫爾米尼烏斯"
+  },
+  {
+    "Key": "male_name_31",
+    "En": "Hilarius",
+    "ZhHans": "希拉留斯",
+    "ZhHant": "希拉留斯"
+  },
+  {
+    "Key": "male_name_32",
+    "En": "Horatius",
+    "ZhHans": "霍拉提乌斯",
+    "ZhHant": "霍拉提烏斯"
+  },
+  {
+    "Key": "male_name_33",
+    "En": "Hortensius",
+    "ZhHans": "霍尔滕修斯",
+    "ZhHant": "霍爾滕修斯"
+  },
+  {
+    "Key": "male_name_34",
+    "En": "Ignatius",
+    "ZhHans": "伊格纳修斯",
+    "ZhHant": "伊格納修斯"
+  },
+  {
+    "Key": "male_name_35",
+    "En": "Julius",
+    "ZhHans": "尤利乌斯",
+    "ZhHant": "尤利烏斯"
+  },
+  {
+    "Key": "male_name_36",
+    "En": "Laelius",
+    "ZhHans": "莱利乌斯",
+    "ZhHant": "萊利烏斯"
+  },
+  {
+    "Key": "male_name_37",
+    "En": "Laurentinus",
+    "ZhHans": "劳伦提努斯",
+    "ZhHant": "勞倫提努斯"
+  },
+  {
+    "Key": "male_name_38",
+    "En": "Livianus",
+    "ZhHans": "利维阿努斯",
+    "ZhHant": "利維阿努斯"
+  },
+  {
+    "Key": "male_name_39",
+    "En": "Livius",
+    "ZhHans": "利维乌斯",
+    "ZhHant": "利維烏斯"
+  },
+  {
+    "Key": "male_name_4",
+    "En": "Antonius",
+    "ZhHans": "安东尼乌斯",
+    "ZhHant": "安東尼烏斯"
+  },
+  {
+    "Key": "male_name_40",
+    "En": "Longinus",
+    "ZhHans": "隆吉努斯",
+    "ZhHant": "隆吉努斯"
+  },
+  {
+    "Key": "male_name_41",
+    "En": "Lucius",
+    "ZhHans": "卢修斯",
+    "ZhHant": "盧修斯"
+  },
+  {
+    "Key": "male_name_42",
+    "En": "Lucretius",
+    "ZhHans": "卢克雷修斯",
+    "ZhHant": "盧克雷修斯"
+  },
+  {
+    "Key": "male_name_43",
+    "En": "Marcellinus",
+    "ZhHans": "马塞利努斯",
+    "ZhHant": "馬塞利努斯"
+  },
+  {
+    "Key": "male_name_44",
+    "En": "Marcus",
+    "ZhHans": "马库斯",
+    "ZhHant": "馬庫斯"
+  },
+  {
+    "Key": "male_name_45",
+    "En": "Marinus",
+    "ZhHans": "马里努斯",
+    "ZhHant": "馬里努斯"
+  },
+  {
+    "Key": "male_name_46",
+    "En": "Maximus",
+    "ZhHans": "马克西穆斯",
+    "ZhHant": "馬克西穆斯"
+  },
+  {
+    "Key": "male_name_47",
+    "En": "Octavius",
+    "ZhHans": "奥克塔维乌斯",
+    "ZhHant": "奧克塔維烏斯"
+  },
+  {
+    "Key": "male_name_48",
+    "En": "Paulus",
+    "ZhHans": "保卢斯",
+    "ZhHant": "保盧斯"
+  },
+  {
+    "Key": "male_name_49",
+    "En": "Petronius",
+    "ZhHans": "佩特罗尼乌斯",
+    "ZhHant": "佩特羅尼烏斯"
+  },
+  {
+    "Key": "male_name_5",
+    "En": "Aquila",
+    "ZhHans": "阿奎拉",
+    "ZhHant": "阿奎拉"
+  },
+  {
+    "Key": "male_name_50",
+    "En": "Pomponius",
+    "ZhHans": "庞庞尼乌斯",
+    "ZhHant": "龐龐尼烏斯"
+  },
+  {
+    "Key": "male_name_51",
+    "En": "Porcius",
+    "ZhHans": "波尔丘斯",
+    "ZhHant": "波爾丘斯"
+  },
+  {
+    "Key": "male_name_52",
+    "En": "Priscus",
+    "ZhHans": "普里斯库斯",
+    "ZhHant": "普裡斯庫斯"
+  },
+  {
+    "Key": "male_name_53",
+    "En": "Quintus",
+    "ZhHans": "昆图斯",
+    "ZhHant": "昆圖斯"
+  },
+  {
+    "Key": "male_name_54",
+    "En": "Rufus",
+    "ZhHans": "鲁弗斯",
+    "ZhHant": "魯弗斯"
+  },
+  {
+    "Key": "male_name_55",
+    "En": "Sabinus",
+    "ZhHans": "萨比努斯",
+    "ZhHant": "薩比努斯"
+  },
+  {
+    "Key": "male_name_56",
+    "En": "Saturnius",
+    "ZhHans": "萨图尔尼乌斯",
+    "ZhHant": "薩圖爾尼烏斯"
+  },
+  {
+    "Key": "male_name_57",
+    "En": "Septimus",
+    "ZhHans": "塞普蒂穆斯",
+    "ZhHant": "塞普蒂穆斯"
+  },
+  {
+    "Key": "male_name_58",
+    "En": "Severus",
+    "ZhHans": "塞维鲁斯",
+    "ZhHant": "塞維魯斯"
+  },
+  {
+    "Key": "male_name_59",
+    "En": "Silvanus",
+    "ZhHans": "西凡纳斯",
+    "ZhHant": "西凡納斯"
+  },
+  {
+    "Key": "male_name_6",
+    "En": "Augustus",
+    "ZhHans": "奥古斯都",
+    "ZhHant": "奧古斯都"
+  },
+  {
+    "Key": "male_name_60",
+    "En": "Tacitus",
+    "ZhHans": "塔西图斯",
+    "ZhHant": "塔西圖斯"
+  },
+  {
+    "Key": "male_name_61",
+    "En": "Tatianus",
+    "ZhHans": "塔提亚努斯",
+    "ZhHant": "塔提亞努斯"
+  },
+  {
+    "Key": "male_name_62",
+    "En": "Tertius",
+    "ZhHans": "特尔提乌斯",
+    "ZhHant": "特爾提烏斯"
+  },
+  {
+    "Key": "male_name_63",
+    "En": "Titus",
+    "ZhHans": "提图斯",
+    "ZhHant": "提圖斯"
+  },
+  {
+    "Key": "male_name_64",
+    "En": "Valentinus",
+    "ZhHans": "瓦伦提努斯",
+    "ZhHant": "瓦倫提努斯"
+  },
+  {
+    "Key": "male_name_65",
+    "En": "Valerius",
+    "ZhHans": "瓦莱里乌斯",
+    "ZhHant": "瓦萊裡烏斯"
+  },
+  {
+    "Key": "male_name_66",
+    "En": "Varius",
+    "ZhHans": "瓦里乌斯",
+    "ZhHant": "瓦裡烏斯"
+  },
+  {
+    "Key": "male_name_67",
+    "En": "Vibius",
+    "ZhHans": "维比乌斯",
+    "ZhHant": "維比烏斯"
+  },
+  {
+    "Key": "male_name_68",
+    "En": "Vitus",
+    "ZhHans": "维图斯",
+    "ZhHant": "維圖斯"
+  },
+  {
+    "Key": "male_name_7",
+    "En": "Aurelius",
+    "ZhHans": "奥雷利乌斯",
+    "ZhHant": "奧雷利烏斯"
+  },
+  {
+    "Key": "male_name_8",
+    "En": "Aurelianus",
+    "ZhHans": "奥雷利亚努斯",
+    "ZhHant": "奧雷利亞努斯"
+  },
+  {
+    "Key": "male_name_9",
+    "En": "Blandus",
+    "ZhHans": "布兰杜斯",
+    "ZhHant": "布蘭杜斯"
+  }
+]

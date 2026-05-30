@@ -6,13 +6,13 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:local="using:RomesteadSaveInspector.WinUI"
     mc:Ignorable="d"
-    Title="Romestead Save Inspector">
+    Title="存档修改器">
 
-    <Grid Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
+    <Grid x:Name="MainRoot" Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
-            <RowDefinition Height="180" />
+            <RowDefinition x:Name="DebugLogRow" Height="120" />
         </Grid.RowDefinitions>
 
         <StackPanel Grid.Row="0" Spacing="8" Padding="16,12,16,8">
@@ -20,37 +20,12 @@
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="220" />
-                    <ColumnDefinition Width="300" />
                 </Grid.ColumnDefinitions>
                 <StackPanel Grid.Column="0" Spacing="2">
-                    <TextBlock x:Name="TitleText" Text="Romestead Save Inspector - WinUI 3" FontSize="24" FontWeight="SemiBold" />
+                    <TextBlock x:Name="TitleText" Text="存档修改器" FontSize="24" FontWeight="SemiBold" />
                     <TextBlock x:Name="SubtitleText" Text="Inspect, edit player item stack counts, back up before saving, and copy saved files to output." TextWrapping="Wrap" Opacity="0.78" />
                 </StackPanel>
-                <TextBlock x:Name="LanguageLabel" Grid.Column="1" Text="Language" VerticalAlignment="Center" Margin="0,0,2,0" />
-                <ComboBox x:Name="LanguageBox" Grid.Column="2" MinWidth="220" SelectionChanged="LanguageBox_SelectionChanged" VerticalAlignment="Center">
-                    <ComboBoxItem Tag="zh-Hans" Content="简体中文" />
-                    <ComboBoxItem Tag="zh-Hant" Content="繁體中文" />
-                    <ComboBoxItem Tag="de" Content="Deutsch" />
-                    <ComboBoxItem Tag="es" Content="Español" />
-                    <ComboBoxItem Tag="fr" Content="Français" />
-                    <ComboBoxItem Tag="pl" Content="Polski" />
-                    <ComboBoxItem Tag="pt-BR" Content="Português (Brasil)" />
-                    <ComboBoxItem Tag="ru" Content="Русский" />
-                    <ComboBoxItem Tag="ja" Content="日本語" />
-                    <ComboBoxItem Tag="tr" Content="Türkçe" />
-                    <ComboBoxItem Tag="ko" Content="한국어" />
-                    <ComboBoxItem Tag="en" Content="English" />
-                </ComboBox>
-                <Border Grid.Column="3" Padding="10,8" CornerRadius="10" BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}" BorderThickness="1" VerticalAlignment="Center">
-                    <StackPanel Spacing="2">
-                        <TextBlock x:Name="InformationTitle" Text="Information" FontWeight="SemiBold" />
-                        <TextBlock x:Name="InfoVersionText" Text="Version: R1.0" TextWrapping="NoWrap" />
-                        <TextBlock x:Name="InfoDateText" Text="Date: 26/5/27" TextWrapping="NoWrap" />
-                        <TextBlock x:Name="InfoGameVersionText" Text="Game version: 0.25.1_1" TextWrapping="NoWrap" />
-                        <TextBlock x:Name="InfoAuthorText" Text="Author: Maple5335" TextWrapping="NoWrap" />
-                    </StackPanel>
-                </Border>
+                <Button x:Name="SettingsButton" Grid.Column="1" Content="Settings" MinWidth="120" Padding="16,8" VerticalAlignment="Center" Click="Settings_Click" />
             </Grid>
 
             <Border Padding="10" CornerRadius="12" BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}" BorderThickness="1">
@@ -75,13 +50,27 @@
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
                     <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="8">
                         <TextBlock x:Name="Step2Title" Text="Step 2: Add save files" FontSize="16" FontWeight="SemiBold" />
                         <Button Content="?" Width="32" Click="HelpSaveFiles_Click" />
                     </StackPanel>
-                    <TextBlock x:Name="Step2Description" Grid.Row="1" Text="Copy world_desc and username.char into the input folder. You can open the game save directory first and copy them manually." TextWrapping="Wrap" />
-                    <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="8">
+                    <TextBlock x:Name="Step2Description" Grid.Row="1" Text="Copy game_state, world_desc and username.char into the input folder. You can open the game save directory first and copy them manually." TextWrapping="Wrap" />
+                    <Grid Grid.Row="2" ColumnSpacing="8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock x:Name="GameDirLabel" Grid.Column="0" Text="Game directory" VerticalAlignment="Center" />
+                        <AutoSuggestBox x:Name="GameDirBox" Grid.Column="1" MinWidth="420" PlaceholderText="Romestead game folder"
+                                        TextChanged="GameDirBox_TextChanged"
+                                        SuggestionChosen="GameDirBox_SuggestionChosen"
+                                        QuerySubmitted="GameDirBox_QuerySubmitted" />
+                        <Button x:Name="CheckGameDirButton" Grid.Column="2" Content="Detect game folder" MinWidth="170" Padding="16,8" Click="CheckGameDir_Click" />
+                    </Grid>
+                    <StackPanel Grid.Row="3" Orientation="Horizontal" Spacing="8">
                         <Button x:Name="OpenProfilesButton" Content="Open game save directory" MinWidth="260" Padding="16,8" Click="OpenProfiles_Click" />
                         <Button x:Name="OpenInputButton" Content="Open input folder" MinWidth="160" Padding="16,8" Click="OpenInput_Click" />
                     </StackPanel>
@@ -89,7 +78,7 @@
             </Border>
 
             <Border Padding="10" CornerRadius="12" BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}" BorderThickness="1">
-                <Grid RowSpacing="8">
+                <Grid Padding="12" RowSpacing="8">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
@@ -111,7 +100,8 @@
                         <StackPanel Orientation="Horizontal" Spacing="8">
                             <Button x:Name="CheckFilesButton" Content="Check files" MinWidth="120" Click="CheckFiles_Click" />
                             <Button x:Name="InspectButton" Content="Inspect" MinWidth="120" Click="Inspect_Click" />
-                            <Button x:Name="SaveButton" Content="Save player items" MinWidth="170" Click="Save_Click" />
+                            <Button x:Name="SaveButton" Content="Save player/world data" MinWidth="190" Click="Save_Click" />
+                            <Button x:Name="WorldRoundtripButton" Content="Test world write" MinWidth="170" Visibility="Collapsed" Click="WorldRoundtrip_Click" />
                         </StackPanel>
                     </StackPanel>
                     <InfoBar Grid.Row="2" x:Name="StatusBar" IsOpen="True" Severity="Informational" Title="Status" Message="Ready." />
@@ -119,90 +109,472 @@
             </Border>
         </StackPanel>
 
-        <Grid Grid.Row="1" Padding="16,8,16,8" ColumnSpacing="12">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="1.1*" />
-                <ColumnDefinition Width="1.4*" />
-            </Grid.ColumnDefinitions>
-
-            <Grid Grid.Column="0" RowSpacing="8">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="*" />
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="*" />
-                </Grid.RowDefinitions>
-                <TextBlock x:Name="WorldInfoTitle" Grid.Row="0" Text="World information" FontSize="18" FontWeight="SemiBold" />
-                <ListView Grid.Row="1" ItemsSource="{x:Bind WorldRows, Mode=OneWay}">
-                    <ListView.ItemTemplate>
-                        <DataTemplate x:DataType="local:KeyValueRow">
-                            <Grid ColumnSpacing="10" Padding="4">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="210" />
-                                    <ColumnDefinition Width="*" />
-                                </Grid.ColumnDefinitions>
-                                <TextBlock Grid.Column="0" Text="{x:Bind Key}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
-                                <TextBlock Grid.Column="1" Text="{x:Bind Value}" TextWrapping="Wrap" />
-                            </Grid>
-                        </DataTemplate>
-                    </ListView.ItemTemplate>
-                </ListView>
-                <TextBlock x:Name="PlayerTotalsTitle" Grid.Row="2" Text="Player item totals" FontSize="18" FontWeight="SemiBold" Margin="0,8,0,0" />
-                <ListView Grid.Row="3" ItemsSource="{x:Bind PlayerTotals, Mode=OneWay}">
-                    <ListView.ItemTemplate>
-                        <DataTemplate x:DataType="local:KeyValueRow">
-                            <Grid ColumnSpacing="10" Padding="4">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="90" />
-                                </Grid.ColumnDefinitions>
-                                <TextBlock Grid.Column="0" Text="{x:Bind Key}" TextTrimming="CharacterEllipsis" />
-                                <TextBlock Grid.Column="1" Text="{x:Bind Value}" HorizontalAlignment="Right" />
-                            </Grid>
-                        </DataTemplate>
-                    </ListView.ItemTemplate>
-                </ListView>
-            </Grid>
-
-            <Grid Grid.Column="1" RowSpacing="8">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="*" />
-                </Grid.RowDefinitions>
-                <TextBlock x:Name="PlayerItemsTitle" Grid.Row="0" Text="Player items (StackCount editable)" FontSize="18" FontWeight="SemiBold" />
-                <Grid Grid.Row="1" Padding="6" ColumnSpacing="8" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}">
+        <TabView Grid.Row="1" Padding="16,8,16,8" IsAddTabButtonVisible="False">
+            <TabViewItem x:Name="PlayerEditorTab" Header="Player editor">
+                <Grid Padding="12" ColumnSpacing="12">
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="90" />
-                        <ColumnDefinition Width="60" />
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="110" />
+                        <ColumnDefinition Width="1.1*" />
+                        <ColumnDefinition Width="1.7*" />
                     </Grid.ColumnDefinitions>
-                    <TextBlock x:Name="HeaderSection" Grid.Column="0" Text="Section" FontWeight="SemiBold" />
-                    <TextBlock x:Name="HeaderSlot" Grid.Column="1" Text="Slot" FontWeight="SemiBold" />
-                    <TextBlock x:Name="HeaderBaseDataId" Grid.Column="2" Text="Item ID" FontWeight="SemiBold" />
-                    <TextBlock x:Name="HeaderStackCount" Grid.Column="3" Text="Count" FontWeight="SemiBold" />
+
+                    <Grid Grid.Column="0" RowSpacing="8">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+                        <TextBlock x:Name="PlayerMoneyTitle" Grid.Row="0" Text="Player money" FontSize="18" FontWeight="SemiBold" />
+                        <Grid Grid.Row="1" ColumnSpacing="8" Padding="0,0,0,4">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="180" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock x:Name="PlayerMoneyLabel" Grid.Column="0" Text="Money" VerticalAlignment="Center" />
+                            <TextBox x:Name="PlayerMoneyBox" Grid.Column="1" TextChanged="PlayerMoneyBox_TextChanged" PlaceholderText="0" />
+                        </Grid>
+                        <TextBlock x:Name="WorldInfoTitle" Grid.Row="2" Text="World information" FontSize="18" FontWeight="SemiBold" />
+                        <ListView Grid.Row="3" ItemsSource="{Binding WorldRows, Mode=OneWay}">
+                            <ListView.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid ColumnSpacing="10" Padding="4">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="210" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Text="{Binding Key}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                                        <TextBlock Grid.Column="1" Text="{Binding Value}" TextWrapping="Wrap" />
+                                    </Grid>
+                                </DataTemplate>
+                            </ListView.ItemTemplate>
+                        </ListView>
+                        <TextBlock x:Name="PlayerTotalsTitle" Grid.Row="4" Text="Player item totals" FontSize="18" FontWeight="SemiBold" Margin="0,8,0,0" />
+                        <ListView Grid.Row="5" ItemsSource="{Binding PlayerTotals, Mode=OneWay}">
+                            <ListView.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid ColumnSpacing="10" Padding="4">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="90" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Text="{Binding Key}" TextTrimming="CharacterEllipsis" />
+                                        <TextBlock Grid.Column="1" Text="{Binding Value}" HorizontalAlignment="Right" />
+                                    </Grid>
+                                </DataTemplate>
+                            </ListView.ItemTemplate>
+                        </ListView>
+                    </Grid>
+
+                    <Grid Grid.Column="1" RowSpacing="8">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+                        <TextBlock x:Name="PlayerItemsTitle" Grid.Row="0" Text="Player items (Item ID and StackCount editable)" FontSize="18" FontWeight="SemiBold" />
+                        <Grid Grid.Row="1" Padding="6" ColumnSpacing="8" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="90" />
+                                <ColumnDefinition Width="60" />
+                                <ColumnDefinition Width="2*" />
+                                <ColumnDefinition Width="1.1*" />
+                                <ColumnDefinition Width="80" />
+                                <ColumnDefinition Width="150" />
+                                <ColumnDefinition Width="110" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock x:Name="HeaderSection" Grid.Column="0" Text="Section" FontWeight="SemiBold" />
+                            <TextBlock x:Name="HeaderSlot" Grid.Column="1" Text="Slot" FontWeight="SemiBold" />
+                            <TextBlock x:Name="HeaderBaseDataId" Grid.Column="2" Text="Item ID" FontWeight="SemiBold" />
+                            <TextBlock x:Name="HeaderItemName" Grid.Column="3" Text="Name" FontWeight="SemiBold" />
+                            <TextBlock x:Name="HeaderMaxStack" Grid.Column="4" Text="Max" FontWeight="SemiBold" />
+                            <TextBlock x:Name="HeaderItemAuras" Grid.Column="5" Text="Auras" FontWeight="SemiBold" />
+                            <TextBlock x:Name="HeaderStackCount" Grid.Column="6" Text="Count" FontWeight="SemiBold" />
+                        </Grid>
+                        <ListView Grid.Row="2" ItemsSource="{Binding PlayerItems, Mode=OneWay}">
+                            <ListView.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid Padding="6" ColumnSpacing="8">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="90" />
+                                            <ColumnDefinition Width="60" />
+                                            <ColumnDefinition Width="2*" />
+                                            <ColumnDefinition Width="1.1*" />
+                                            <ColumnDefinition Width="80" />
+                                            <ColumnDefinition Width="150" />
+                                            <ColumnDefinition Width="110" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Text="{Binding Section}" TextTrimming="CharacterEllipsis" />
+                                        <TextBlock Grid.Column="1" Text="{Binding SlotIndex}" />
+                                        <AutoSuggestBox Grid.Column="2"
+                                                        Text="{Binding BaseDataId, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                        PlaceholderText="item:id"
+                                                        TextChanged="ItemIdBox_TextChanged"
+                                                        SuggestionChosen="ItemIdBox_SuggestionChosen"
+                                                        QuerySubmitted="ItemIdBox_QuerySubmitted" />
+                                        <TextBlock Grid.Column="3" Text="{Binding ItemName, Mode=OneWay}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                                        <TextBlock Grid.Column="4" Text="{Binding MaxStackCount, Mode=OneWay}" VerticalAlignment="Center" />
+                                        <Grid Grid.Column="5" ColumnSpacing="4">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0" Text="{Binding AuraSummary, Mode=OneWay}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" ToolTipService.ToolTip="{Binding AuraTooltip, Mode=OneWay}" />
+                                            <Button Grid.Column="1" Content="…" MinWidth="32" Padding="6,2" IsEnabled="{Binding CanEditAuras}" Click="EditItemAuras_Click" />
+                                        </Grid>
+                                        <TextBox Grid.Column="6" Text="{Binding StackCountText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" TextChanged="StackCountBox_TextChanged" />
+                                    </Grid>
+                                </DataTemplate>
+                            </ListView.ItemTemplate>
+                        </ListView>
+                    </Grid>
                 </Grid>
-                <ListView Grid.Row="2" ItemsSource="{x:Bind PlayerItems, Mode=OneWay}">
-                    <ListView.ItemTemplate>
-                        <DataTemplate x:DataType="local:PlayerItemRow">
-                            <Grid Padding="6" ColumnSpacing="8">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="90" />
-                                    <ColumnDefinition Width="60" />
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="110" />
-                                </Grid.ColumnDefinitions>
-                                <TextBlock Grid.Column="0" Text="{x:Bind Section}" TextTrimming="CharacterEllipsis" />
-                                <TextBlock Grid.Column="1" Text="{x:Bind SlotIndex}" />
-                                <TextBlock Grid.Column="2" Text="{x:Bind BaseDataId}" TextTrimming="CharacterEllipsis" />
-                                <TextBox Grid.Column="3" Text="{x:Bind StackCountText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
-                            </Grid>
-                        </DataTemplate>
-                    </ListView.ItemTemplate>
-                </ListView>
-            </Grid>
-        </Grid>
+            </TabViewItem>
+
+            <TabViewItem x:Name="PlayerSkillsTab" Header="Player skills">
+                <Grid Padding="12" RowSpacing="8">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+                    <TextBlock x:Name="PlayerSkillsTitle" Grid.Row="0" Text="Player skills" FontSize="18" FontWeight="SemiBold" />
+                    <Grid Grid.Row="1" Padding="6" ColumnSpacing="8" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="1.5*" />
+                            <ColumnDefinition Width="1.1*" />
+                            <ColumnDefinition Width="90" />
+                            <ColumnDefinition Width="130" />
+                            <ColumnDefinition Width="130" />
+                            <ColumnDefinition Width="110" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock x:Name="SkillHeaderId" Grid.Column="0" Text="Skill ID" FontWeight="SemiBold" />
+                        <TextBlock x:Name="SkillHeaderName" Grid.Column="1" Text="Name" FontWeight="SemiBold" />
+                        <TextBlock x:Name="SkillHeaderLevel" Grid.Column="2" Text="Level" FontWeight="SemiBold" />
+                        <TextBlock x:Name="SkillHeaderExperience" Grid.Column="3" Text="Experience" FontWeight="SemiBold" />
+                        <TextBlock x:Name="SkillHeaderRequired" Grid.Column="4" Text="Next level" FontWeight="SemiBold" />
+                        <TextBlock x:Name="SkillHeaderValue" Grid.Column="5" Text="Value" FontWeight="SemiBold" />
+                    </Grid>
+                    <ListView Grid.Row="2" ItemsSource="{Binding PlayerSkills, Mode=OneWay}">
+                        <ListView.ItemTemplate>
+                            <DataTemplate>
+                                <Grid Padding="6" ColumnSpacing="8">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="1.5*" />
+                                        <ColumnDefinition Width="1.1*" />
+                                        <ColumnDefinition Width="90" />
+                                        <ColumnDefinition Width="130" />
+                                        <ColumnDefinition Width="130" />
+                                        <ColumnDefinition Width="110" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0" Text="{Binding SkillId}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                                    <TextBlock Grid.Column="1" Text="{Binding DisplayName, Mode=OneWay}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                                    <TextBox Grid.Column="2" Text="{Binding LevelText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                                    <TextBox Grid.Column="3" Text="{Binding CurrentExperienceText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                                    <TextBlock Grid.Column="4" Text="{Binding ExperienceRequiredToLevelUp, Mode=OneWay}" VerticalAlignment="Center" />
+                                    <TextBlock Grid.Column="5" Text="{Binding CurrentValue, Mode=OneWay}" VerticalAlignment="Center" />
+                                </Grid>
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
+                </Grid>
+            </TabViewItem>
+
+            <TabViewItem x:Name="CitizensTab" Header="Citizens">
+                <Grid Padding="12" RowSpacing="8">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+                    <TextBlock x:Name="CitizensTitle" Grid.Row="0" Text="Citizens" FontSize="18" FontWeight="SemiBold" />
+                    <Grid Grid.Row="1" Padding="6" ColumnSpacing="8" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="100" />
+                            <ColumnDefinition Width="1.1*" />
+                            <ColumnDefinition Width="1.1*" />
+                            <ColumnDefinition Width="90" />
+                            <ColumnDefinition Width="95" />
+                            <ColumnDefinition Width="95" />
+                            <ColumnDefinition Width="95" />
+                            <ColumnDefinition Width="1.4*" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock x:Name="CitizenHeaderKind" Grid.Column="0" Text="Kind" FontWeight="SemiBold" />
+                        <TextBlock x:Name="CitizenHeaderName" Grid.Column="1" Text="Name" FontWeight="SemiBold" />
+                        <TextBlock x:Name="CitizenHeaderJob" Grid.Column="2" Text="Current job" FontWeight="SemiBold" />
+                        <TextBlock x:Name="CitizenHeaderJobLevel" Grid.Column="3" Text="Job Lv." FontWeight="SemiBold" />
+                        <TextBlock x:Name="CitizenHeaderEfficiency" Grid.Column="4" Text="Efficiency" FontWeight="SemiBold" />
+                        <TextBlock x:Name="CitizenHeaderExpertise" Grid.Column="5" Text="Expertise" FontWeight="SemiBold" />
+                        <TextBlock x:Name="CitizenHeaderLoyalty" Grid.Column="6" Text="Loyalty" FontWeight="SemiBold" />
+                        <TextBlock x:Name="CitizenHeaderTraits" Grid.Column="7" Text="Traits" FontWeight="SemiBold" />
+                    </Grid>
+                    <ListView Grid.Row="2" ItemsSource="{Binding Citizens, Mode=OneWay}">
+                        <ListView.ItemTemplate>
+                            <DataTemplate>
+                                <Grid Padding="6" ColumnSpacing="8">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="100" />
+                                        <ColumnDefinition Width="1.1*" />
+                                        <ColumnDefinition Width="1.1*" />
+                                        <ColumnDefinition Width="90" />
+                                        <ColumnDefinition Width="95" />
+                                        <ColumnDefinition Width="95" />
+                                        <ColumnDefinition Width="95" />
+                                        <ColumnDefinition Width="1.4*" />
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0" Spacing="2">
+                                        <TextBlock Text="{Binding KindPrimary, Mode=OneWay}" TextTrimming="CharacterEllipsis" FontSize="{Binding PrimaryFontSize, Mode=OneWay}" FontWeight="SemiBold" />
+                                        <TextBlock Text="{Binding KindSecondary, Mode=OneWay}" TextTrimming="CharacterEllipsis" FontSize="{Binding SecondaryFontSize, Mode=OneWay}" Opacity="0.55" />
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="1" Spacing="2">
+                                        <TextBlock Text="{Binding NamePrimary, Mode=OneWay}" TextTrimming="CharacterEllipsis" FontSize="{Binding PrimaryFontSize, Mode=OneWay}" FontWeight="SemiBold" />
+                                        <TextBlock Text="{Binding NameSecondary, Mode=OneWay}" TextTrimming="CharacterEllipsis" FontSize="{Binding SecondaryFontSize, Mode=OneWay}" Opacity="0.55" />
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="2" Spacing="2">
+                                        <TextBlock Text="{Binding JobPrimary, Mode=OneWay}" TextTrimming="CharacterEllipsis" FontSize="{Binding PrimaryFontSize, Mode=OneWay}" FontWeight="SemiBold" />
+                                        <TextBlock Text="{Binding JobSecondary, Mode=OneWay}" TextTrimming="CharacterEllipsis" FontSize="{Binding SecondaryFontSize, Mode=OneWay}" Opacity="0.55" />
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="3" Spacing="2">
+                                        <TextBlock Text="{Binding JobLevelPrimary, Mode=OneWay}" FontSize="{Binding PrimaryFontSize, Mode=OneWay}" FontWeight="SemiBold" />
+                                        <Grid ColumnSpacing="4">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBox Grid.Column="0" Text="{Binding CurrentJobLevelEdit, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" MinWidth="36" IsEnabled="{Binding CanEditCitizen}" ToolTipService.ToolTip="Level" />
+                                            <TextBox Grid.Column="1" Text="{Binding CurrentJobExperienceEdit, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" MinWidth="48" IsEnabled="{Binding CanEditCitizen}" ToolTipService.ToolTip="Experience" />
+                                        </Grid>
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="4" Spacing="2">
+                                        <TextBlock Text="{Binding EfficiencyPrimary, Mode=OneWay}" TextTrimming="CharacterEllipsis" FontSize="{Binding PrimaryFontSize, Mode=OneWay}" FontWeight="SemiBold" />
+                                        <TextBox Text="{Binding EfficiencyEdit, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" MinWidth="56" IsEnabled="{Binding CanEditCitizen}" />
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="5" Spacing="2">
+                                        <TextBlock Text="{Binding ExpertisePrimary, Mode=OneWay}" TextTrimming="CharacterEllipsis" FontSize="{Binding PrimaryFontSize, Mode=OneWay}" FontWeight="SemiBold" />
+                                        <TextBox Text="{Binding ExpertiseEdit, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" MinWidth="56" IsEnabled="{Binding CanEditCitizen}" />
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="6" Spacing="2">
+                                        <TextBlock Text="{Binding LoyaltyPrimary, Mode=OneWay}" TextTrimming="CharacterEllipsis" FontSize="{Binding PrimaryFontSize, Mode=OneWay}" FontWeight="SemiBold" />
+                                        <Grid ColumnSpacing="4">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBox Grid.Column="0" Text="{Binding LoyaltyLevelEdit, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" MinWidth="36" IsEnabled="{Binding CanEditCitizen}" ToolTipService.ToolTip="Loyalty level" />
+                                            <TextBox Grid.Column="1" Text="{Binding LoyaltyEdit, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" MinWidth="48" IsEnabled="{Binding CanEditCitizen}" ToolTipService.ToolTip="Loyalty" />
+                                        </Grid>
+                                    </StackPanel>
+                                    <Grid Grid.Column="7" ColumnSpacing="6">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="32" />
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0" Spacing="2">
+                                            <TextBlock Text="{Binding TraitsPrimary, Mode=OneWay}" TextTrimming="CharacterEllipsis" FontSize="{Binding PrimaryFontSize, Mode=OneWay}" FontWeight="SemiBold" />
+                                            <AutoSuggestBox Text="{Binding TraitIdsEdit, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                            MinWidth="160"
+                                                            IsEnabled="{Binding CanEditCitizen}"
+                                                            PlaceholderText="citizen_aura:..."
+                                                            TextChanged="CitizenTraitBox_TextChanged"
+                                                            SuggestionChosen="CitizenTraitBox_SuggestionChosen"
+                                                            QuerySubmitted="CitizenTraitBox_QuerySubmitted"
+                                                            ToolTipService.ToolTip="citizen_aura:...; citizen_aura:..." />
+                                        </StackPanel>
+                                        <TextBlock Grid.Column="1" Text="ℹ️" HorizontalAlignment="Right" VerticalAlignment="Center" FontSize="16" ToolTipService.ToolTip="{Binding TraitTooltip, Mode=OneWay}" />
+                                    </Grid>
+                                </Grid>
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
+                </Grid>
+            </TabViewItem>
+
+
+            <TabViewItem x:Name="CitizenTraitsTab" Header="Citizen traits">
+                <Grid Padding="12" RowSpacing="8">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+                    <TextBlock x:Name="CitizenTraitsTitle" Grid.Row="0" Text="Citizen traits" FontSize="18" FontWeight="SemiBold" />
+                    <Grid Grid.Row="1" ColumnSpacing="8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="420" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock x:Name="CitizenTraitSearchLabel" Grid.Column="0" Text="Search" VerticalAlignment="Center" />
+                        <TextBox x:Name="CitizenTraitSearchBox" Grid.Column="1" PlaceholderText="ID / name / effect" TextChanged="CitizenTraitSearchBox_TextChanged" />
+                        <TextBlock x:Name="CitizenTraitCountText" Grid.Column="2" VerticalAlignment="Center" Opacity="0.78" />
+                    </Grid>
+                    <Grid Grid.Row="2" RowSpacing="0">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+                        <Grid Grid.Row="0" Padding="6" ColumnSpacing="8" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="2.0*" />
+                                <ColumnDefinition Width="1.2*" />
+                                <ColumnDefinition Width="0.8*" />
+                                <ColumnDefinition Width="2.0*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock x:Name="TraitDbHeaderId" Grid.Column="0" Text="ID" FontWeight="SemiBold" />
+                            <TextBlock x:Name="TraitDbHeaderName" Grid.Column="1" Text="Name" FontWeight="SemiBold" />
+                            <TextBlock x:Name="TraitDbHeaderType" Grid.Column="2" Text="Type" FontWeight="SemiBold" />
+                            <TextBlock x:Name="TraitDbHeaderEffects" Grid.Column="3" Text="Effects" FontWeight="SemiBold" />
+                        </Grid>
+                        <ListView Grid.Row="1" ItemsSource="{Binding FilteredCitizenTraitRows, Mode=OneWay}">
+                            <ListView.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid Padding="6" ColumnSpacing="8">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="2.0*" />
+                                            <ColumnDefinition Width="1.2*" />
+                                            <ColumnDefinition Width="0.8*" />
+                                            <ColumnDefinition Width="2.0*" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Text="{Binding Id}" TextTrimming="CharacterEllipsis" />
+                                        <TextBlock Grid.Column="1" Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                                        <TextBlock Grid.Column="2" Text="{Binding Category}" TextTrimming="CharacterEllipsis" />
+                                        <TextBlock Grid.Column="3" Text="{Binding Effects}" TextTrimming="CharacterEllipsis" />
+                                    </Grid>
+                                </DataTemplate>
+                            </ListView.ItemTemplate>
+                        </ListView>
+                    </Grid>
+                </Grid>
+            </TabViewItem>
+
+
+            <TabViewItem x:Name="ItemAurasTab" Header="Item auras">
+                <Grid Padding="12" RowSpacing="8">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+                    <TextBlock x:Name="ItemAurasTitle" Grid.Row="0" Text="Item auras" FontSize="18" FontWeight="SemiBold" />
+                    <Grid Grid.Row="1" ColumnSpacing="8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="420" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock x:Name="ItemAuraSearchLabel" Grid.Column="0" Text="Search" VerticalAlignment="Center" />
+                        <TextBox x:Name="ItemAuraSearchBox" Grid.Column="1" PlaceholderText="ID / name / effect" TextChanged="ItemAuraSearchBox_TextChanged" />
+                        <TextBlock x:Name="ItemAuraCountText" Grid.Column="2" VerticalAlignment="Center" Opacity="0.78" />
+                    </Grid>
+                    <Grid Grid.Row="2" RowSpacing="0">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+                        <Grid Grid.Row="0" Padding="6" ColumnSpacing="8" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="2.0*" />
+                                <ColumnDefinition Width="1.2*" />
+                                <ColumnDefinition Width="0.8*" />
+                                <ColumnDefinition Width="0.5*" />
+                                <ColumnDefinition Width="2.4*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock x:Name="ItemAuraDbHeaderId" Grid.Column="0" Text="ID" FontWeight="SemiBold" />
+                            <TextBlock x:Name="ItemAuraDbHeaderName" Grid.Column="1" Text="Name" FontWeight="SemiBold" />
+                            <TextBlock x:Name="ItemAuraDbHeaderCategory" Grid.Column="2" Text="Category" FontWeight="SemiBold" />
+                            <TextBlock x:Name="ItemAuraDbHeaderTier" Grid.Column="3" Text="Tier" FontWeight="SemiBold" />
+                            <TextBlock x:Name="ItemAuraDbHeaderEffects" Grid.Column="4" Text="Effects" FontWeight="SemiBold" />
+                        </Grid>
+                        <ListView Grid.Row="1" ItemsSource="{Binding FilteredItemAuraRows, Mode=OneWay}">
+                            <ListView.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid Padding="6" ColumnSpacing="8">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="2.0*" />
+                                            <ColumnDefinition Width="1.2*" />
+                                            <ColumnDefinition Width="0.8*" />
+                                            <ColumnDefinition Width="0.5*" />
+                                            <ColumnDefinition Width="2.4*" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Text="{Binding Id}" TextTrimming="CharacterEllipsis" />
+                                        <TextBlock Grid.Column="1" Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                                        <TextBlock Grid.Column="2" Text="{Binding Category}" TextTrimming="CharacterEllipsis" />
+                                        <TextBlock Grid.Column="3" Text="{Binding Tier}" />
+                                        <TextBlock Grid.Column="4" Text="{Binding Effects}" TextTrimming="CharacterEllipsis" />
+                                    </Grid>
+                                </DataTemplate>
+                            </ListView.ItemTemplate>
+                        </ListView>
+                    </Grid>
+                </Grid>
+            </TabViewItem>
+
+            <TabViewItem x:Name="ItemDatabaseTab" Header="Item database">
+                <Grid Padding="12" RowSpacing="8">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+                    <TextBlock x:Name="ItemDatabaseTitle" Grid.Row="0" Text="Item database" FontSize="18" FontWeight="SemiBold" />
+                    <Grid Grid.Row="1" ColumnSpacing="8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="420" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock x:Name="ItemDatabaseSearchLabel" Grid.Column="0" Text="Search" VerticalAlignment="Center" />
+                        <TextBox x:Name="ItemDatabaseSearchBox" Grid.Column="1" PlaceholderText="ID / name / category / flag" TextChanged="ItemDatabaseSearchBox_TextChanged" />
+                        <TextBlock x:Name="ItemDatabaseCountText" Grid.Column="2" VerticalAlignment="Center" Opacity="0.78" />
+                    </Grid>
+                    <Grid Grid.Row="2" RowSpacing="0">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+                        <Grid Grid.Row="0" Padding="6" ColumnSpacing="8" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="2*" />
+                                <ColumnDefinition Width="1.4*" />
+                                <ColumnDefinition Width="1.0*" />
+                                <ColumnDefinition Width="70" />
+                                <ColumnDefinition Width="1.0*" />
+                                <ColumnDefinition Width="1.2*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock x:Name="DbHeaderId" Grid.Column="0" Text="ID" FontWeight="SemiBold" />
+                            <TextBlock x:Name="DbHeaderName" Grid.Column="1" Text="Name" FontWeight="SemiBold" />
+                            <TextBlock x:Name="DbHeaderCategory" Grid.Column="2" Text="Category" FontWeight="SemiBold" />
+                            <TextBlock x:Name="DbHeaderMax" Grid.Column="3" Text="Max" FontWeight="SemiBold" />
+                            <TextBlock x:Name="DbHeaderSafety" Grid.Column="4" Text="Safety" FontWeight="SemiBold" />
+                            <TextBlock x:Name="DbHeaderFlags" Grid.Column="5" Text="Flags" FontWeight="SemiBold" />
+                        </Grid>
+                        <ListView Grid.Row="1" ItemsSource="{Binding FilteredItemDatabaseRows, Mode=OneWay}">
+                            <ListView.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid Padding="6" ColumnSpacing="8">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="2*" />
+                                            <ColumnDefinition Width="1.4*" />
+                                            <ColumnDefinition Width="1.0*" />
+                                            <ColumnDefinition Width="70" />
+                                            <ColumnDefinition Width="1.0*" />
+                                            <ColumnDefinition Width="1.2*" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Text="{Binding Id}" TextTrimming="CharacterEllipsis" />
+                                        <TextBlock Grid.Column="1" Text="{Binding DisplayName}" TextTrimming="CharacterEllipsis" />
+                                        <TextBlock Grid.Column="2" Text="{Binding Category}" TextTrimming="CharacterEllipsis" />
+                                        <TextBlock Grid.Column="3" Text="{Binding EditorMaxStackSize}" />
+                                        <TextBlock Grid.Column="4" Text="{Binding Safety}" TextTrimming="CharacterEllipsis" />
+                                        <TextBlock Grid.Column="5" Text="{Binding Flags}" TextTrimming="CharacterEllipsis" />
+                                    </Grid>
+                                </DataTemplate>
+                            </ListView.ItemTemplate>
+                        </ListView>
+                    </Grid>
+                </Grid>
+            </TabViewItem>
+        </TabView>
 
         <Grid Grid.Row="2" Padding="16,0,16,16">
             <Grid.RowDefinitions>
