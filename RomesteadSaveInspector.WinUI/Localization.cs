@@ -106,6 +106,7 @@ public static class Localization
             ["save.nochange.msg"] = "没有检测到物品或金钱变化。",
             ["save.running.title"] = "保存中",
             ["save.running.msg"] = "正在备份 .char 并写回修改后的玩家文件。",
+        ["save.world.preflight.msg"] = "正在预验证世界写入。验证通过后才会真正保存玩家/世界数据。",
             ["save.incomplete.title"] = "保存未完成",
             ["save.done.title"] = "保存完成",
             ["save.done.no.auto.reload"] = "已跳过保存后的自动重读，避免界面未响应。需要刷新数据时请手动点击“识别”。",

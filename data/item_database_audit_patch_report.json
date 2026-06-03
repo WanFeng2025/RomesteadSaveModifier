@@ -1,0 +1,16 @@
+{
+  "CheckedAgainst": "Shared.Data.Items.SharedDataSetup.cs + Shared/ItemIds.cs",
+  "AddedOfficialItemIds": [
+    "trinket:phoenix_feather",
+    "trinket:pyzifax",
+    "trinket:barkback",
+    "trinket:fallen_Cape",
+    "trinket:bedouin_cloak",
+    "placeable:beehive"
+  ],
+  "KnownAffectedIds": [
+    "trinket:phoenix_feather",
+    "trinket:pyzifax"
+  ],
+  "Note": "These official ItemData records used ItemIds.* constants and were missing from the generated JSON database."
+}

@@ -1,6 +1,8 @@
-using System;
+﻿using System;
 using System.IO;
 using System.Text;
+using System.Diagnostics;
+using System.Threading;
 
 namespace RomesteadSaveInspector.WinUI;
 
@@ -20,13 +22,16 @@ internal static class AppLogger
         _showDebug = showDebug;
         var logDir = Path.Combine(appRoot, "logs");
         Directory.CreateDirectory(logDir);
-        _logFile = Path.Combine(logDir, DateTime.Now.ToString("yyyyMMdd_HHmmss") + ".log");
-        File.WriteAllText(_logFile, "Romestead Save Inspector GUI log" + Environment.NewLine, Encoding.UTF8);
-        File.WriteAllText(Path.Combine(logDir, "latest.log"), "Romestead Save Inspector GUI latest log" + Environment.NewLine, Encoding.UTF8);
+        var stamp = DateTime.Now.ToString("yyyyMMdd_HHmmss_fff") + "_" + Environment.ProcessId.ToString();
+        _logFile = Path.Combine(logDir, stamp + ".log");
+        SafeWriteAllText(_logFile, "Romestead Save Inspector GUI log" + Environment.NewLine);
+        SafeWriteAllText(Path.Combine(logDir, "latest.log"), "Romestead Save Inspector GUI latest log" + Environment.NewLine);
         Info($"Log file: {_logFile}");
     }
 
     public static void Info(string message) => Write("INFO", message);
+
+    public static void Warn(string message) => Write("WARN", message);
 
     public static void Error(string message, Exception? ex = null)
     {
@@ -40,9 +45,9 @@ internal static class AppLogger
         var line = $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}] [{level}] {message}";
         lock (Sync)
         {
-            File.AppendAllText(_logFile, line + Environment.NewLine, Encoding.UTF8);
+            SafeAppendAllText(_logFile, line + Environment.NewLine);
             var latest = Path.Combine(Path.GetDirectoryName(_logFile)!, "latest.log");
-            File.AppendAllText(latest, line + Environment.NewLine, Encoding.UTF8);
+            SafeAppendAllText(latest, line + Environment.NewLine);
         }
 
         if (_showDebug)
@@ -50,4 +55,46 @@ internal static class AppLogger
             try { LogWritten?.Invoke(line); } catch { /* ignore UI log sink errors */ }
         }
     }
+    private static void SafeWriteAllText(string path, string text)
+    {
+        SafeFileIo(path, stream =>
+        {
+            stream.SetLength(0);
+            var bytes = Encoding.UTF8.GetBytes(text);
+            stream.Write(bytes, 0, bytes.Length);
+        });
+    }
+
+    private static void SafeAppendAllText(string path, string text)
+    {
+        SafeFileIo(path, stream =>
+        {
+            stream.Seek(0, SeekOrigin.End);
+            var bytes = Encoding.UTF8.GetBytes(text);
+            stream.Write(bytes, 0, bytes.Length);
+        });
+    }
+
+    private static void SafeFileIo(string path, Action<FileStream> action)
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        Exception? last = null;
+        for (var attempt = 0; attempt < 6; attempt++)
+        {
+            try
+            {
+                using var stream = new FileStream(path, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.ReadWrite | FileShare.Delete);
+                action(stream);
+                return;
+            }
+            catch (IOException ex)
+            {
+                last = ex;
+                Thread.Sleep(25 + attempt * 25);
+            }
+        }
+
+        try { Debug.WriteLine(last?.ToString()); } catch { }
+    }
+
 }

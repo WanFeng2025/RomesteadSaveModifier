@@ -1,4 +1,4 @@
-using Microsoft.UI.Xaml;
+﻿using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
 using System;
@@ -18,7 +18,7 @@ using RomesteadSaveInspector.Database;
 
 namespace RomesteadSaveInspector.WinUI;
 
-public sealed record UserSettingsDto(string Language, double UiScale, bool DebugMode);
+public sealed record UserSettingsDto(string Language, double UiScale, bool DebugMode, bool UnsafeCitizenStringWorldWrite, bool EnableCitizenTraitEditor, bool OutputCsv);
 
 public sealed partial class MainWindow : Window
 {
@@ -31,6 +31,9 @@ public sealed partial class MainWindow : Window
     private string _language = "zh-Hans";
     private double _uiScale = 0.94;
     private bool _debugMode;
+    private bool _unsafeCitizenStringWorldWrite;
+    private bool _enableCitizenTraitEditor;
+    private bool _outputCsv;
     private string _settingsPath = "";
     private string _moneySourceFile = "";
     private string _moneySaveFileName = "";
@@ -39,6 +42,11 @@ public sealed partial class MainWindow : Window
     private string _originalMoneyText = "";
     private bool _isSaving;
     private bool _isInspecting;
+    private string _selectedPlayerKey = string.Empty;
+    private string _pendingPlayerKey = string.Empty;
+    private bool _isApplyingPlayerChoices;
+    private string _lastInspectionDataDir = string.Empty;
+    private string _runtimeInspectionCacheDir = string.Empty;
     private const int MaxVisibleLogLines = 600;
     private readonly object _logLock = new();
     private readonly Queue<string> _pendingLogLines = new();
@@ -50,6 +58,7 @@ public sealed partial class MainWindow : Window
     public ObservableCollection<KeyValueRow> PlayerTotals { get; } = new();
     public ObservableCollection<PlayerItemRow> PlayerItems { get; } = new();
     public ObservableCollection<PlayerSkillRow> PlayerSkills { get; } = new();
+    public ObservableCollection<PlayerFileChoice> PlayerFileChoices { get; } = new();
     public ObservableCollection<CitizenRow> Citizens { get; } = new();
     public ObservableCollection<CitizenTraitDatabaseRow> FilteredCitizenTraitRows { get; } = new();
     public ObservableCollection<ItemAuraDatabaseRow> FilteredItemAuraRows { get; } = new();
@@ -80,6 +89,7 @@ public sealed partial class MainWindow : Window
         GameDirBox.Text = _gameDir;
         ApplyLanguage();
         ApplyDebugModeVisibility();
+        ApplyCitizenTraitEditorVisibility();
         LoadItemDatabaseRows();
         LoadCitizenTraitRows();
         LoadItemAuraRows();
@@ -126,6 +136,9 @@ public sealed partial class MainWindow : Window
                 _gameDir = NormalizeDirectoryText(gameDirectory.GetString() ?? string.Empty);
             }
             _debugMode = ReadDebugMode(root);
+            _unsafeCitizenStringWorldWrite = ReadUnsafeCitizenStringWorldWrite(root);
+            _enableCitizenTraitEditor = ReadEnableCitizenTraitEditor(root);
+            _outputCsv = ReadOutputCsv(root);
         }
         catch (Exception ex)
         {
@@ -133,6 +146,9 @@ public sealed partial class MainWindow : Window
             _language = "zh-Hans";
             _uiScale = 0.94;
             _debugMode = false;
+            _unsafeCitizenStringWorldWrite = false;
+            _enableCitizenTraitEditor = true;
+            _outputCsv = false;
         }
     }
 
@@ -146,7 +162,10 @@ public sealed partial class MainWindow : Window
                 ["language"] = _language,
                 ["uiScale"] = _uiScale,
                 ["gameDirectory"] = _gameDir,
-                ["debug-mode"] = _debugMode
+                ["debug-mode"] = _debugMode,
+                ["unsafe-citizen-string-world-write"] = _unsafeCitizenStringWorldWrite,
+                ["enable-citizen-trait-editor"] = _enableCitizenTraitEditor,
+                ["output_csv"] = _outputCsv
             };
             var json = JsonSerializer.Serialize(settings, new JsonSerializerOptions { WriteIndented = true });
             File.WriteAllText(_settingsPath, json, Encoding.UTF8);
@@ -172,11 +191,86 @@ public sealed partial class MainWindow : Window
         return false;
     }
 
+    private static bool ReadUnsafeCitizenStringWorldWrite(JsonElement root)
+    {
+        if (root.TryGetProperty("unsafe-citizen-string-world-write", out var unsafeWrite) ||
+            root.TryGetProperty("unsafeCitizenStringWorldWrite", out unsafeWrite) ||
+            root.TryGetProperty("UnsafeCitizenStringWorldWrite", out unsafeWrite))
+        {
+            return unsafeWrite.ValueKind switch
+            {
+                JsonValueKind.True => true,
+                JsonValueKind.False => false,
+                JsonValueKind.String => bool.TryParse(unsafeWrite.GetString(), out var parsed) && parsed,
+                _ => false
+            };
+        }
+
+        return false;
+    }
+
+    private static bool ReadEnableCitizenTraitEditor(JsonElement root)
+    {
+        if (root.TryGetProperty("enable-citizen-trait-editor", out var enabled) ||
+            root.TryGetProperty("enableCitizenTraitEditor", out enabled) ||
+            root.TryGetProperty("EnableCitizenTraitEditor", out enabled))
+        {
+            return enabled.ValueKind switch
+            {
+                JsonValueKind.True => true,
+                JsonValueKind.False => false,
+                JsonValueKind.String => bool.TryParse(enabled.GetString(), out var parsed) && parsed,
+                _ => false
+            };
+        }
+
+        return true;
+    }
+
+
+    private static bool ReadOutputCsv(JsonElement root)
+    {
+        if (root.TryGetProperty("output_csv", out var enabled) ||
+            root.TryGetProperty("outputCsv", out enabled) ||
+            root.TryGetProperty("OutputCsv", out enabled))
+        {
+            return enabled.ValueKind switch
+            {
+                JsonValueKind.True => true,
+                JsonValueKind.False => false,
+                JsonValueKind.String => bool.TryParse(enabled.GetString(), out var parsed) && parsed,
+                _ => false
+            };
+        }
+
+        return false;
+    }
+
     private void ApplyDebugModeVisibility()
     {
         if (WorldRoundtripButton != null)
         {
             WorldRoundtripButton.Visibility = _debugMode ? Visibility.Visible : Visibility.Collapsed;
+        }
+    }
+
+    private void ApplyCitizenTraitEditorVisibility()
+    {
+        // Citizen trait/buff/debuff editing remains visible by default for continued diagnostics.
+        // The setting is retained only as an emergency kill switch; normal builds keep it enabled.
+        var traitVisibility = _enableCitizenTraitEditor ? Visibility.Visible : Visibility.Collapsed;
+        if (CitizenTraitsTab != null) CitizenTraitsTab.Visibility = traitVisibility;
+        if (CitizenHeaderTraits != null) CitizenHeaderTraits.Visibility = traitVisibility;
+        if (CitizenTraitHeaderColumn != null) CitizenTraitHeaderColumn.Width = _enableCitizenTraitEditor ? new GridLength(1.4, GridUnitType.Star) : new GridLength(0);
+
+        foreach (var row in Citizens)
+        {
+            row.SetCitizenTraitEditingEnabled(_enableCitizenTraitEditor);
+        }
+
+        if (!_enableCitizenTraitEditor)
+        {
+            AppLogger.Info("Citizen trait/buff/debuff editor is disabled by settings.json emergency switch.");
         }
     }
 
@@ -352,6 +446,8 @@ public sealed partial class MainWindow : Window
         PlayerItemsTitle.Text = L("player.items");
         PlayerMoneyTitle.Text = L("player.money");
         PlayerMoneyLabel.Text = L("money");
+        PlayerFileTitle.Text = _language.StartsWith("zh", StringComparison.OrdinalIgnoreCase) ? "当前玩家 char" : "Current player .char";
+        SwitchPlayerFileButton.Content = _language.StartsWith("zh", StringComparison.OrdinalIgnoreCase) ? "切换玩家 char" : "Switch player .char";
         HeaderSection.Text = L("section");
         HeaderSlot.Text = L("slot");
         HeaderBaseDataId.Text = L("item.id");
@@ -397,6 +493,7 @@ public sealed partial class MainWindow : Window
         RefreshItemDatabaseRows();
         RefreshCitizenTraitRows();
         RefreshItemAuraRows();
+        ApplyCitizenTraitEditorVisibility();
         foreach (var row in PlayerItems) row.ApplyDatabase(_language);
         foreach (var row in PlayerSkills) row.ApplyLanguage(_language);
         foreach (var row in Citizens) row.ApplyLanguage(_language);
@@ -443,7 +540,7 @@ public sealed partial class MainWindow : Window
         var latestButton = new Button { Content = L("settings.about.latest"), MinWidth = 220, Padding = new Thickness(12, 8, 12, 8) };
         latestButton.Click += (_, _) => OpenUrl("https://github.com/WanFeng2025/RomesteadSaveModifier/releases");
         var aboutPanel = new StackPanel { Spacing = 8, Padding = new Thickness(12) };
-        aboutPanel.Children.Add(new TextBlock { Text = $"{L("info.version")}: R1.1.33" });
+        aboutPanel.Children.Add(new TextBlock { Text = $"{L("info.version")}: R1.1.66" });
         aboutPanel.Children.Add(new TextBlock { Text = $"{L("info.date")}: 5月30日" });
         aboutPanel.Children.Add(new TextBlock { Text = $"{L("info.game.version")}: 0.25.1_4" });
         aboutPanel.Children.Add(new TextBlock { Text = $"{L("info.author")}: Maple5335" });
@@ -921,6 +1018,17 @@ public sealed partial class MainWindow : Window
     }
 
 
+    private string GetRuntimeInspectionCacheDir()
+    {
+        if (!string.IsNullOrWhiteSpace(_runtimeInspectionCacheDir))
+            return _runtimeInspectionCacheDir;
+
+        var safeName = Convert.ToHexString(System.Security.Cryptography.SHA1.HashData(Encoding.UTF8.GetBytes(_appRoot))).Substring(0, 12);
+        _runtimeInspectionCacheDir = Path.Combine(Path.GetTempPath(), "RomesteadSaveInspector", safeName, "inspection_cache");
+        return _runtimeInspectionCacheDir;
+    }
+
+
     private async Task RunInspectionAsync(bool automaticAfterSave = false)
     {
         if (_isInspecting || _isSaving)
@@ -943,16 +1051,19 @@ public sealed partial class MainWindow : Window
             var player = PlayerNameBox.Text.Trim();
             var language = _language;
             var outputDir = _outputDir;
+            var outputCsv = _outputCsv;
+            var runtimeOutputDir = outputCsv ? outputDir : GetRuntimeInspectionCacheDir();
             var summaryFilesLabel = L("summary.files");
             var summaryStatesLabel = L("summary.states");
             var summaryPlayerSavesLabel = L("summary.playersaves");
             var summaryPlayerLabel = L("summary.player");
+            var enableCitizenTraitEditor = _enableCitizenTraitEditor;
 
             var options = new InspectorCore.Options
             {
                 InputPath = _inputDir,
                 LibDir = GetDependencyDirForRun(),
-                OutputDir = _outputDir,
+                OutputDir = runtimeOutputDir,
                 PlayerFilter = string.IsNullOrWhiteSpace(player) ? null : player,
                 Limit = 2000,
                 NoFiles = false
@@ -960,9 +1071,15 @@ public sealed partial class MainWindow : Window
 
             var result = await Task.Run(() =>
             {
+                if (!outputCsv)
+                {
+                    CleanupVisibleReportOutputs(outputDir);
+                    CleanupRuntimeInspectionCache(runtimeOutputDir);
+                }
+
                 var code = InspectorCore.Run(options);
                 if (code != 0) return InspectionBuildResult.Failed(code);
-                var snapshot = BuildOutputSnapshot(outputDir, language, summaryFilesLabel, summaryStatesLabel, summaryPlayerSavesLabel, summaryPlayerLabel);
+                var snapshot = BuildOutputSnapshot(runtimeOutputDir, language, summaryFilesLabel, summaryStatesLabel, summaryPlayerSavesLabel, summaryPlayerLabel, enableCitizenTraitEditor, _selectedPlayerKey);
 
                 // If a user-name filter accidentally filters out the detected .char file,
                 // fall back to a full scan. This avoids the confusing state where Check files
@@ -973,7 +1090,15 @@ public sealed partial class MainWindow : Window
                     options.PlayerFilter = null;
                     code = InspectorCore.Run(options);
                     if (code != 0) return InspectionBuildResult.Failed(code);
-                    snapshot = BuildOutputSnapshot(outputDir, language, summaryFilesLabel, summaryStatesLabel, summaryPlayerSavesLabel, summaryPlayerLabel);
+                    snapshot = BuildOutputSnapshot(runtimeOutputDir, language, summaryFilesLabel, summaryStatesLabel, summaryPlayerSavesLabel, summaryPlayerLabel, enableCitizenTraitEditor, _selectedPlayerKey);
+                }
+
+                if (!outputCsv)
+                {
+                    // Keep the temp runtime cache while the app is open so switching .char
+                    // files can rebuild the player view without re-scanning or relying on
+                    // visible CSV/JSON files in output/. The cache is outside output/.
+                    CleanupVisibleReportOutputs(outputDir);
                 }
 
                 AppLogger.Info($"Inspection snapshot: worldRows={snapshot.WorldRows.Count}, playerTotals={snapshot.PlayerTotals.Count}, playerItems={snapshot.PlayerItems.Count}, skills={snapshot.PlayerSkills.Count}, citizens={snapshot.Citizens.Count}, hasMoney={snapshot.Money != null}");
@@ -986,6 +1111,7 @@ public sealed partial class MainWindow : Window
                 return;
             }
 
+            _lastInspectionDataDir = runtimeOutputDir;
             await ApplyInspectionSnapshotAsync(result.Snapshot);
             DispatcherQueue.TryEnqueue(ApplyUiScale);
 
@@ -1028,9 +1154,87 @@ public sealed partial class MainWindow : Window
         public List<KeyValueRow> PlayerTotals { get; } = new();
         public List<PlayerItemRow> PlayerItems { get; } = new();
         public List<PlayerSkillRow> PlayerSkills { get; } = new();
+        public List<PlayerFileChoice> PlayerChoices { get; } = new();
+        public string SelectedPlayerKey { get; set; } = string.Empty;
         public List<CitizenRow> Citizens { get; } = new();
         public MoneyEditorSnapshot? Money { get; set; }
     }
+
+    private static readonly string[] VisibleReportFileNames =
+    [
+        "summary.json",
+        "files_scanned.csv",
+        "world_desc.csv",
+        "world_desc_binding_report.json",
+        "world_desc_binding_report.csv",
+        "state_entries.csv",
+        "world_item_instances.csv",
+        "world_item_totals.csv",
+        "world_inventories.csv",
+        "world_inventory_slots.csv",
+        "citizens.csv",
+        "citizen_jobs.csv",
+        "citizen_debug.csv",
+        "citizen_entity_binding_report.json",
+        "citizen_entity_binding_report.csv",
+        "citizen_aura_runtime_report.csv",
+        "player_saves.csv",
+        "player_items.csv",
+        "player_skills.csv",
+        "player_item_totals.csv",
+        "citizen_trait_deep_diff.json",
+        "citizen_trait_deep_diff.csv",
+        "world_write_validation_report.json",
+        "world_write_validation_report.csv",
+        "world_write_entry_size_compare.json",
+        "world_write_entry_size_compare.csv",
+        "world_write_native_failure_report.json",
+        "world_write_native_failure_report.csv",
+        "world_write_preflight_report_copy.json",
+        "safe_world_pair_report.json",
+        "safe_world_pair_report.csv",
+        "world_write_lab_report.json",
+        "world_write_lab_report.csv"
+    ];
+
+    private static void CleanupRuntimeInspectionCache(string runtimeOutputDir)
+    {
+        try
+        {
+            if (Directory.Exists(runtimeOutputDir))
+                Directory.Delete(runtimeOutputDir, recursive: true);
+        }
+        catch (Exception ex)
+        {
+            AppLogger.Warn("Runtime inspection cache cleanup failed: " + ex.Message);
+        }
+    }
+
+    private static void CleanupVisibleReportOutputs(string outputDir)
+    {
+        try
+        {
+            Directory.CreateDirectory(outputDir);
+            foreach (var name in VisibleReportFileNames)
+            {
+                var path = Path.Combine(outputDir, name);
+                if (File.Exists(path))
+                    File.Delete(path);
+            }
+
+            foreach (var dirName in new[] { "safe_world_pair", "world_write_lab" })
+            {
+                var dir = Path.Combine(outputDir, dirName);
+                if (Directory.Exists(dir))
+                    Directory.Delete(dir, recursive: true);
+            }
+        }
+        catch (Exception ex)
+        {
+            AppLogger.Warn("Visible report cleanup failed: " + ex.Message);
+        }
+    }
+
 
     private sealed record MoneyEditorSnapshot(
         string SourceFile,
@@ -1045,7 +1249,9 @@ public sealed partial class MainWindow : Window
         string summaryFilesLabel,
         string summaryStatesLabel,
         string summaryPlayerSavesLabel,
-        string summaryPlayerLabel)
+        string summaryPlayerLabel,
+        bool enableCitizenTraitEditor,
+        string? selectedPlayerKey = null)
     {
         var snapshot = new InspectionSnapshot();
 
@@ -1078,29 +1284,45 @@ public sealed partial class MainWindow : Window
         }
 
         var savesPath = Path.Combine(outputDir, "player_saves.csv");
+        PlayerFileChoice? selectedPlayer = null;
         if (File.Exists(savesPath))
         {
-            var firstPlayer = true;
-            foreach (var row in ReadCsv(savesPath))
+            var saveRows = ReadCsv(savesPath).ToList();
+            foreach (var row in saveRows)
             {
-                snapshot.WorldRows.Add(new KeyValueRow(summaryPlayerLabel, $"{Get(row, "PlayerName")}  Money={Get(row, "Money")}  File={Get(row, "SaveFileName")}"));
-                if (firstPlayer)
+                var choice = new PlayerFileChoice
                 {
-                    snapshot.Money = new MoneyEditorSnapshot(
-                        Get(row, "SourceFile"),
-                        Get(row, "SaveFileName"),
-                        Get(row, "PlayerName"),
-                        ToInt(Get(row, "PlayerId")),
-                        Get(row, "Money"));
-                    firstPlayer = false;
-                }
+                    SourceFile = Get(row, "SourceFile"),
+                    SaveFileName = Get(row, "SaveFileName"),
+                    PlayerName = Get(row, "PlayerName"),
+                    PlayerId = ToInt(Get(row, "PlayerId")),
+                    WorldId = Get(row, "WorldId"),
+                    MoneyText = Get(row, "Money")
+                };
+                choice.Key = MakePlayerChoiceKey(choice.SourceFile, choice.SaveFileName, choice.PlayerName, choice.PlayerId);
+                choice.DisplayText = BuildPlayerChoiceDisplayText(choice);
+                snapshot.PlayerChoices.Add(choice);
+                snapshot.WorldRows.Add(new KeyValueRow(summaryPlayerLabel, $"{choice.PlayerName}  Money={choice.MoneyText}  File={FirstNonEmpty(choice.SaveFileName, choice.SourceFile)}"));
+            }
+
+            selectedPlayer = snapshot.PlayerChoices.FirstOrDefault(p => string.Equals(p.Key, selectedPlayerKey, StringComparison.OrdinalIgnoreCase))
+                             ?? snapshot.PlayerChoices.FirstOrDefault();
+            if (selectedPlayer != null)
+            {
+                snapshot.SelectedPlayerKey = selectedPlayer.Key;
+                snapshot.Money = new MoneyEditorSnapshot(
+                    selectedPlayer.SourceFile,
+                    selectedPlayer.SaveFileName,
+                    selectedPlayer.PlayerName,
+                    selectedPlayer.PlayerId,
+                    selectedPlayer.MoneyText);
             }
         }
 
         var totalsPath = Path.Combine(outputDir, "player_item_totals.csv");
         if (File.Exists(totalsPath))
         {
-            foreach (var row in ReadCsv(totalsPath).OrderBy(r => Get(r, "BaseDataId")))
+            foreach (var row in ReadCsv(totalsPath).Where(r => MatchesSelectedPlayer(r, selectedPlayer)).OrderBy(r => Get(r, "BaseDataId")))
             {
                 snapshot.PlayerTotals.Add(new KeyValueRow(Get(row, "BaseDataId"), Get(row, "TotalStackCount")));
             }
@@ -1109,7 +1331,7 @@ public sealed partial class MainWindow : Window
         var playerItemsPath = Path.Combine(outputDir, "player_items.csv");
         if (File.Exists(playerItemsPath))
         {
-            foreach (var row in ReadCsv(playerItemsPath).OrderBy(r => Get(r, "Section")).ThenBy(r => ToInt(Get(r, "SlotIndex"))))
+            foreach (var row in ReadCsv(playerItemsPath).Where(r => MatchesSelectedPlayer(r, selectedPlayer)).OrderBy(r => Get(r, "Section")).ThenBy(r => ToInt(Get(r, "SlotIndex"))))
             {
                 var itemRow = new PlayerItemRow
                 {
@@ -1135,7 +1357,7 @@ public sealed partial class MainWindow : Window
         var playerSkillsPath = Path.Combine(outputDir, "player_skills.csv");
         if (File.Exists(playerSkillsPath))
         {
-            foreach (var row in ReadCsv(playerSkillsPath).OrderBy(r => Get(r, "SkillId"), StringComparer.OrdinalIgnoreCase))
+            foreach (var row in ReadCsv(playerSkillsPath).Where(r => MatchesSelectedPlayer(r, selectedPlayer)).OrderBy(r => Get(r, "SkillId"), StringComparer.OrdinalIgnoreCase))
             {
                 var skillRow = new PlayerSkillRow
                 {
@@ -1194,6 +1416,7 @@ public sealed partial class MainWindow : Window
                     TraitCount = Get(row, "TraitCount")
                 };
                 citizen.InitializeEditFields();
+                citizen.SetCitizenTraitEditingEnabled(enableCitizenTraitEditor);
                 citizen.ApplyLanguage(language);
                 snapshot.Citizens.Add(citizen);
             }
@@ -1208,6 +1431,7 @@ public sealed partial class MainWindow : Window
         PlayerTotals.Clear();
         PlayerItems.Clear();
         PlayerSkills.Clear();
+        PlayerFileChoices.Clear();
         Citizens.Clear();
         ClearMoneyEditor();
 
@@ -1215,7 +1439,10 @@ public sealed partial class MainWindow : Window
         await AddRowsResponsiveAsync(PlayerTotals, snapshot.PlayerTotals);
         await AddRowsResponsiveAsync(PlayerItems, snapshot.PlayerItems);
         await AddRowsResponsiveAsync(PlayerSkills, snapshot.PlayerSkills);
+        await AddRowsResponsiveAsync(PlayerFileChoices, snapshot.PlayerChoices);
         await AddRowsResponsiveAsync(Citizens, snapshot.Citizens);
+
+        ApplyPlayerChoiceSelection(snapshot.SelectedPlayerKey);
 
         if (snapshot.Money != null)
         {
@@ -1284,6 +1511,110 @@ public sealed partial class MainWindow : Window
         return true;
     }
 
+
+    private static string MakePlayerChoiceKey(string sourceFile, string saveFileName, string playerName, int playerId)
+        => string.Join("|", FirstNonEmpty(sourceFile, saveFileName), saveFileName ?? string.Empty, playerName ?? string.Empty, playerId.ToString(CultureInfo.InvariantCulture));
+
+    private static string BuildPlayerChoiceDisplayText(PlayerFileChoice choice)
+    {
+        var file = FirstNonEmpty(choice.SaveFileName, choice.SourceFile);
+        return $"{choice.PlayerName}  [{file}]";
+    }
+
+    private static string FirstNonEmpty(params string?[] values)
+    {
+        foreach (var value in values)
+            if (!string.IsNullOrWhiteSpace(value)) return value.Trim();
+        return string.Empty;
+    }
+
+    private static bool MatchesSelectedPlayer(Dictionary<string, string> row, PlayerFileChoice? selected)
+    {
+        if (selected == null) return true;
+        var rowKey = MakePlayerChoiceKey(Get(row, "SourceFile"), Get(row, "SaveFileName"), Get(row, "PlayerName"), ToInt(Get(row, "PlayerId")));
+        if (string.Equals(rowKey, selected.Key, StringComparison.OrdinalIgnoreCase)) return true;
+
+        // Some older CSVs may omit SaveFileName. Fall back to the strongest available identifiers.
+        var sourceOk = string.IsNullOrWhiteSpace(selected.SourceFile) || string.Equals(Get(row, "SourceFile"), selected.SourceFile, StringComparison.OrdinalIgnoreCase);
+        var nameOk = string.IsNullOrWhiteSpace(selected.PlayerName) || string.Equals(Get(row, "PlayerName"), selected.PlayerName, StringComparison.OrdinalIgnoreCase);
+        var idOk = selected.PlayerId == 0 || ToInt(Get(row, "PlayerId")) == selected.PlayerId;
+        return sourceOk && nameOk && idOk;
+    }
+
+    private void ApplyPlayerChoiceSelection(string selectedKey)
+    {
+        _isApplyingPlayerChoices = true;
+        try
+        {
+            _selectedPlayerKey = selectedKey ?? string.Empty;
+            _pendingPlayerKey = _selectedPlayerKey;
+            var selected = PlayerFileChoices.FirstOrDefault(p => string.Equals(p.Key, _selectedPlayerKey, StringComparison.OrdinalIgnoreCase));
+            if (PlayerFileComboBox != null)
+                PlayerFileComboBox.SelectedItem = selected;
+        }
+        finally
+        {
+            _isApplyingPlayerChoices = false;
+        }
+    }
+
+    private void PlayerFileComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_isApplyingPlayerChoices) return;
+        if (PlayerFileComboBox?.SelectedItem is PlayerFileChoice choice)
+            _pendingPlayerKey = choice.Key;
+    }
+
+    private async void SwitchPlayerFile_Click(object sender, RoutedEventArgs e)
+    {
+        if (_isInspecting || _isSaving)
+        {
+            SetStatus(L("inspect.running.title"), L("busy.operation.msg"), InfoBarSeverity.Informational);
+            return;
+        }
+        if (string.IsNullOrWhiteSpace(_pendingPlayerKey) || string.Equals(_pendingPlayerKey, _selectedPlayerKey, StringComparison.OrdinalIgnoreCase)) return;
+
+        var nextKey = _pendingPlayerKey;
+        var dataDir = !string.IsNullOrWhiteSpace(_lastInspectionDataDir) && Directory.Exists(_lastInspectionDataDir)
+            ? _lastInspectionDataDir
+            : (_outputCsv ? _outputDir : GetRuntimeInspectionCacheDir());
+
+        if (!Directory.Exists(dataDir) || !File.Exists(Path.Combine(dataDir, "player_saves.csv")))
+        {
+            AppLogger.Warn("Player switch requested but inspection data cache is missing; running a fresh inspection.");
+            _selectedPlayerKey = nextKey;
+            await RunInspectionAsync();
+            SetStatus("玩家已切换", "当前编辑目标已切换到所选 .char 文件。", InfoBarSeverity.Success);
+            return;
+        }
+
+        SetLongOperationUi(true);
+        try
+        {
+            _selectedPlayerKey = nextKey;
+            var language = _language;
+            var enableCitizenTraitEditor = _enableCitizenTraitEditor;
+            var summaryFilesLabel = L("summary.files");
+            var summaryStatesLabel = L("summary.states");
+            var summaryPlayerSavesLabel = L("summary.playersaves");
+            var summaryPlayerLabel = L("summary.player");
+
+            var snapshot = await Task.Run(() => BuildOutputSnapshot(dataDir, language, summaryFilesLabel, summaryStatesLabel, summaryPlayerSavesLabel, summaryPlayerLabel, enableCitizenTraitEditor, nextKey));
+            await ApplyInspectionSnapshotAsync(snapshot);
+            DispatcherQueue.TryEnqueue(ApplyUiScale);
+            SetStatus("玩家已切换", "当前编辑目标已切换到所选 .char 文件。", InfoBarSeverity.Success);
+        }
+        catch (Exception ex)
+        {
+            AppLogger.Error("Player .char switch failed.", ex);
+            SetStatus("玩家切换失败", ex.Message, InfoBarSeverity.Error);
+        }
+        finally
+        {
+            SetLongOperationUi(false);
+        }
+    }
+
     private static void AddJsonNumberTo(List<KeyValueRow> rows, JsonElement root, string propertyName, string label)
     {
         if (root.TryGetProperty(propertyName, out var p))
@@ -1294,18 +1625,22 @@ public sealed partial class MainWindow : Window
     // on a worker thread and applies it to the UI in small batches.
     private void LoadOutputFiles()
     {
-        var snapshot = BuildOutputSnapshot(_outputDir, _language, L("summary.files"), L("summary.states"), L("summary.playersaves"), L("summary.player"));
+        var dataDir = !string.IsNullOrWhiteSpace(_lastInspectionDataDir) && Directory.Exists(_lastInspectionDataDir) ? _lastInspectionDataDir : _outputDir;
+        var snapshot = BuildOutputSnapshot(dataDir, _language, L("summary.files"), L("summary.states"), L("summary.playersaves"), L("summary.player"), _enableCitizenTraitEditor, _selectedPlayerKey);
         WorldRows.Clear();
         PlayerTotals.Clear();
         PlayerItems.Clear();
         PlayerSkills.Clear();
+        PlayerFileChoices.Clear();
         Citizens.Clear();
         ClearMoneyEditor();
         foreach (var row in snapshot.WorldRows) WorldRows.Add(row);
         foreach (var row in snapshot.PlayerTotals) PlayerTotals.Add(row);
         foreach (var row in snapshot.PlayerItems) PlayerItems.Add(row);
         foreach (var row in snapshot.PlayerSkills) PlayerSkills.Add(row);
+        foreach (var row in snapshot.PlayerChoices) PlayerFileChoices.Add(row);
         foreach (var row in snapshot.Citizens) Citizens.Add(row);
+        ApplyPlayerChoiceSelection(snapshot.SelectedPlayerKey);
         if (snapshot.Money != null) ApplyMoneyEditorSnapshot(snapshot.Money);
     }
 
@@ -1398,7 +1733,7 @@ public sealed partial class MainWindow : Window
                 i.GetExpertiseOrThrow(),
                 i.GetLoyaltyOrThrow(),
                 i.GetLoyaltyLevelOrThrow(),
-                i.GetTraitIdsForSave())).ToList();
+                _enableCitizenTraitEditor ? i.GetTraitIdsForSave() : i.OriginalTraitIds)).ToList();
 
             SetStatus(L("save.running.title"), L("save.running.msg"), InfoBarSeverity.Informational);
             var playerHasChanges = updates.Count > 0 || moneyUpdates.Length > 0 || skillUpdates.Count > 0;
@@ -1412,6 +1747,16 @@ public sealed partial class MainWindow : Window
             // worker thread throws COMException 0x8001010E.
             var dependencyDirForSave = GetDependencyDirForRun();
 
+            // Staged save: validate world/game_state changes before writing any real files.
+            // This prevents a half-save where .char is already written but game_state is later rejected
+            // by the raw-preserve/string-map safety check. The preflight runs in a temporary copy of
+            // input and may take time, but it keeps the user's real save untouched if world validation fails.
+            if (citizenHasChanges)
+            {
+                SetStatus(L("save.running.title"), L("save.world.preflight.msg"), InfoBarSeverity.Informational);
+                await Task.Run(() => InspectorCore.ValidateCitizenChanges(dependencyDirForSave, _inputDir, _outputDir, citizenUpdates, _unsafeCitizenStringWorldWrite, _debugMode, _outputCsv));
+            }
+
             if (playerHasChanges)
             {
                 var playerResult = await Task.Run(() => InspectorCore.SavePlayerChanges(dependencyDirForSave, _inputDir, _backupDir, _outputDir, updates, moneyUpdates, skillUpdates));
@@ -1422,7 +1767,7 @@ public sealed partial class MainWindow : Window
 
             if (citizenHasChanges)
             {
-                var citizenResult = await Task.Run(() => InspectorCore.SaveCitizenChanges(dependencyDirForSave, _inputDir, _backupDir, _outputDir, citizenUpdates));
+                var citizenResult = await Task.Run(() => InspectorCore.SaveCitizenChanges(dependencyDirForSave, _inputDir, _backupDir, _outputDir, citizenUpdates, _unsafeCitizenStringWorldWrite, _debugMode, _outputCsv));
                 totalSaved += citizenResult.SavedFiles;
                 totalChanged += citizenResult.ChangedItems;
                 messages.Add(citizenResult.Message);
@@ -2272,6 +2617,25 @@ public sealed class CitizenRow : INotifyPropertyChanged
     public string LoyaltyEdit { get; set; } = "";
     public string LoyaltyLevelEdit { get; set; } = "";
     public string TraitIdsEdit { get; set; } = "";
+    private bool _citizenTraitEditingEnabled;
+    public bool CitizenTraitEditingEnabled => _citizenTraitEditingEnabled;
+    public bool CanEditCitizenTraits => CanEditCitizen && _citizenTraitEditingEnabled;
+    public Visibility CitizenTraitEditorVisibility => _citizenTraitEditingEnabled ? Visibility.Visible : Visibility.Collapsed;
+    public GridLength CitizenTraitColumnWidth => _citizenTraitEditingEnabled ? new GridLength(1.4, GridUnitType.Star) : new GridLength(0);
+
+    public void SetCitizenTraitEditingEnabled(bool enabled)
+    {
+        _citizenTraitEditingEnabled = enabled;
+        if (!enabled) TraitIdsEdit = OriginalTraitIds;
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(CitizenTraitEditingEnabled)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(CanEditCitizenTraits)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(CitizenTraitEditorVisibility)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(CitizenTraitColumnWidth)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(TraitIdsEdit)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(TraitsPrimary)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(TraitTooltip)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsChanged)));
+    }
 
     public string KindPrimary { get; set; } = "";
     public string KindSecondary { get; set; } = "";
@@ -2321,7 +2685,7 @@ public sealed class CitizenRow : INotifyPropertyChanged
         !SameText(ExpertiseEdit, OriginalExpertise) ||
         !SameText(LoyaltyEdit, OriginalLoyalty) ||
         !SameText(LoyaltyLevelEdit, OriginalLoyaltyLevel) ||
-        !SameText(NormalizeTraitIdList(TraitIdsEdit), OriginalTraitIds));
+        (_citizenTraitEditingEnabled && !SameText(NormalizeTraitIdList(TraitIdsEdit), OriginalTraitIds)));
 
     public bool TryValidateForSave(out string message)
     {
@@ -2331,16 +2695,23 @@ public sealed class CitizenRow : INotifyPropertyChanged
             message = $"Wild citizen {FirstNonEmpty(Name, CitizenId)} cannot be edited.";
             return !IsChanged;
         }
-        if (!TryParseInt(CurrentJobLevelEdit, 0, 10, out _)) { message = $"Citizen {FirstNonEmpty(Name, CitizenId)} job level must be 0-10."; return false; }
+        if (!TryParseInt(CurrentJobLevelEdit, 1, 10, out _)) { message = $"Citizen {FirstNonEmpty(Name, CitizenId)} job level must be 1-10."; return false; }
         if (!TryParseFloat(CurrentJobExperienceEdit, 0, 999999999, out _)) { message = $"Citizen {FirstNonEmpty(Name, CitizenId)} job experience must be >= 0."; return false; }
         if (!TryParseFloat(EfficiencyEdit, -999999, 999999, out _)) { message = $"Citizen {FirstNonEmpty(Name, CitizenId)} efficiency must be a number."; return false; }
         if (!TryParseFloat(ExpertiseEdit, -999999, 999999, out _)) { message = $"Citizen {FirstNonEmpty(Name, CitizenId)} expertise must be a number."; return false; }
         if (!TryParseFloat(LoyaltyEdit, 0, 999999999, out _)) { message = $"Citizen {FirstNonEmpty(Name, CitizenId)} loyalty must be >= 0."; return false; }
         if (!TryParseInt(LoyaltyLevelEdit, 0, 4, out _)) { message = $"Citizen {FirstNonEmpty(Name, CitizenId)} loyalty level must be 0-4."; return false; }
-        var traitIds = CitizenTraitCatalog.SplitTraitIds(TraitIdsEdit).Select(CitizenTraitCatalog.NormalizeId).Where(v => !string.IsNullOrWhiteSpace(v)).ToList();
-        var invalidTrait = traitIds.FirstOrDefault(v => !CitizenTraitCatalog.IsValid(v));
-        if (!string.IsNullOrWhiteSpace(invalidTrait)) { message = $"Citizen {FirstNonEmpty(Name, CitizenId)} trait ID does not exist in the game database: {invalidTrait}"; return false; }
-        TraitIdsEdit = CitizenTraitCatalog.NormalizeList(TraitIdsEdit, keepUnknown: false);
+        if (_citizenTraitEditingEnabled)
+        {
+            var traitIds = CitizenTraitCatalog.SplitTraitIds(TraitIdsEdit).Select(CitizenTraitCatalog.NormalizeId).Where(v => !string.IsNullOrWhiteSpace(v)).ToList();
+            var invalidTrait = traitIds.FirstOrDefault(v => !CitizenTraitCatalog.IsValid(v));
+            if (!string.IsNullOrWhiteSpace(invalidTrait)) { message = $"Citizen {FirstNonEmpty(Name, CitizenId)} trait ID does not exist in the game database: {invalidTrait}"; return false; }
+            TraitIdsEdit = CitizenTraitCatalog.NormalizeList(TraitIdsEdit, keepUnknown: false);
+        }
+        else
+        {
+            TraitIdsEdit = OriginalTraitIds;
+        }
         message = "OK";
         return true;
     }
@@ -2354,7 +2725,7 @@ public sealed class CitizenRow : INotifyPropertyChanged
         OriginalExpertise = NormalizeNumberText(ExpertiseEdit);
         OriginalLoyalty = NormalizeNumberText(LoyaltyEdit);
         OriginalLoyaltyLevel = NormalizeNumberText(LoyaltyLevelEdit);
-        OriginalTraitIds = NormalizeTraitIdList(TraitIdsEdit);
+        OriginalTraitIds = _citizenTraitEditingEnabled ? NormalizeTraitIdList(TraitIdsEdit) : OriginalTraitIds;
 
         CurrentJobLevel = OriginalCurrentJobLevel;
         CurrentJobExperience = OriginalCurrentJobExperience;
@@ -2375,7 +2746,7 @@ public sealed class CitizenRow : INotifyPropertyChanged
     public float GetExpertiseOrThrow() => ParseFloatOrThrow(ExpertiseEdit);
     public float GetLoyaltyOrThrow() => ParseFloatOrThrow(LoyaltyEdit);
     public int GetLoyaltyLevelOrThrow() => ParseIntOrThrow(LoyaltyLevelEdit);
-    public string GetTraitIdsForSave() => NormalizeTraitIdList(TraitIdsEdit);
+    public string GetTraitIdsForSave() => _citizenTraitEditingEnabled ? NormalizeTraitIdList(TraitIdsEdit) : OriginalTraitIds;
 
     private static bool SameText(string? a, string? b) => string.Equals((a ?? "").Trim(), (b ?? "").Trim(), StringComparison.OrdinalIgnoreCase);
 
@@ -3045,6 +3416,19 @@ public sealed class CitizenRow : INotifyPropertyChanged
     public event PropertyChangedEventHandler? PropertyChanged;
 }
 
+
+public sealed class PlayerFileChoice
+{
+    public string Key { get; set; } = string.Empty;
+    public string SourceFile { get; set; } = string.Empty;
+    public string SaveFileName { get; set; } = string.Empty;
+    public string PlayerName { get; set; } = string.Empty;
+    public int PlayerId { get; set; }
+    public string WorldId { get; set; } = string.Empty;
+    public string MoneyText { get; set; } = string.Empty;
+    public string DisplayText { get; set; } = string.Empty;
+}
+
 public sealed class PlayerSkillRow : INotifyPropertyChanged
 {
     private string _levelText = "0";
@@ -3330,7 +3714,7 @@ public sealed class PlayerItemRow : INotifyPropertyChanged
         }
 
         if (value <= 0) { StackCount = 1; return; }
-        if (IsEquipmentSection(Section) && IsEquipmentSlotItemId(BaseDataId))
+        if (IsEquipmentSection(Section) && IsSingleCountEquipmentSlotItemId(BaseDataId))
         {
             if (value != 1) StackCount = 1;
             return;
@@ -3382,12 +3766,12 @@ public sealed class PlayerItemRow : INotifyPropertyChanged
         {
             if (!IsEquipmentSlotItemId(id))
             {
-                message = $"{Section} slot {SlotIndex} only accepts equipment IDs such as weapon, armor, trinket, axe, pickaxe, back, or torch. {id} is not equipment.";
+                message = $"{Section} slot {SlotIndex} only accepts equipment IDs such as weapon, armor, trinket, axe, pickaxe, back, torch, or ammo. {id} is not equipment.";
                 return false;
             }
-            if (value != 1)
+            if (IsSingleCountEquipmentSlotItemId(id) && value != 1)
             {
-                message = $"{Section} slot {SlotIndex} must have count 1 for equipment item {id}.";
+                message = $"{Section} slot {SlotIndex} must have count 1 for non-stackable equipment item {id}.";
                 return false;
             }
         }
@@ -3430,7 +3814,14 @@ public sealed class PlayerItemRow : INotifyPropertyChanged
     {
         var value = (id ?? string.Empty).Trim().ToLowerInvariant();
         return value.StartsWith("weapon:") || value.StartsWith("armor:") || value.StartsWith("trinket:") ||
-               value.StartsWith("axe:") || value.StartsWith("pickaxe:") || value.StartsWith("back:") || value.StartsWith("torch:");
+               value.StartsWith("axe:") || value.StartsWith("pickaxe:") || value.StartsWith("back:") ||
+               value.StartsWith("torch:") || value.StartsWith("ammo:");
+    }
+
+    private static bool IsSingleCountEquipmentSlotItemId(string? id)
+    {
+        var value = (id ?? string.Empty).Trim().ToLowerInvariant();
+        return IsEquipmentSlotItemId(value) && !value.StartsWith("ammo:");
     }
 
 

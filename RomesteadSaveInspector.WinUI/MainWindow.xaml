@@ -122,6 +122,8 @@
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
                             <RowDefinition Height="*" />
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="*" />
@@ -135,8 +137,23 @@
                             <TextBlock x:Name="PlayerMoneyLabel" Grid.Column="0" Text="Money" VerticalAlignment="Center" />
                             <TextBox x:Name="PlayerMoneyBox" Grid.Column="1" TextChanged="PlayerMoneyBox_TextChanged" PlaceholderText="0" />
                         </Grid>
-                        <TextBlock x:Name="WorldInfoTitle" Grid.Row="2" Text="World information" FontSize="18" FontWeight="SemiBold" />
-                        <ListView Grid.Row="3" ItemsSource="{Binding WorldRows, Mode=OneWay}">
+                        <TextBlock x:Name="PlayerFileTitle" Grid.Row="2" Text="当前玩家 char" FontSize="18" FontWeight="SemiBold" Margin="0,4,0,0" />
+                        <Grid Grid.Row="3" ColumnSpacing="8" Padding="0,0,0,4">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <ComboBox x:Name="PlayerFileComboBox" Grid.Column="0" MinWidth="240" ItemsSource="{Binding PlayerFileChoices, Mode=OneWay}" SelectionChanged="PlayerFileComboBox_SelectionChanged">
+                                <ComboBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding DisplayText}" TextTrimming="CharacterEllipsis" />
+                                    </DataTemplate>
+                                </ComboBox.ItemTemplate>
+                            </ComboBox>
+                            <Button x:Name="SwitchPlayerFileButton" Grid.Column="1" Content="切换玩家 char" MinWidth="130" Click="SwitchPlayerFile_Click" />
+                        </Grid>
+                        <TextBlock x:Name="WorldInfoTitle" Grid.Row="4" Text="World information" FontSize="18" FontWeight="SemiBold" />
+                        <ListView Grid.Row="5" ItemsSource="{Binding WorldRows, Mode=OneWay}">
                             <ListView.ItemTemplate>
                                 <DataTemplate>
                                     <Grid ColumnSpacing="10" Padding="4">
@@ -150,8 +167,8 @@
                                 </DataTemplate>
                             </ListView.ItemTemplate>
                         </ListView>
-                        <TextBlock x:Name="PlayerTotalsTitle" Grid.Row="4" Text="Player item totals" FontSize="18" FontWeight="SemiBold" Margin="0,8,0,0" />
-                        <ListView Grid.Row="5" ItemsSource="{Binding PlayerTotals, Mode=OneWay}">
+                        <TextBlock x:Name="PlayerTotalsTitle" Grid.Row="6" Text="Player item totals" FontSize="18" FontWeight="SemiBold" Margin="0,8,0,0" />
+                        <ListView Grid.Row="7" ItemsSource="{Binding PlayerTotals, Mode=OneWay}">
                             <ListView.ItemTemplate>
                                 <DataTemplate>
                                     <Grid ColumnSpacing="10" Padding="4">
@@ -298,7 +315,7 @@
                             <ColumnDefinition Width="95" />
                             <ColumnDefinition Width="95" />
                             <ColumnDefinition Width="95" />
-                            <ColumnDefinition Width="1.4*" />
+                            <ColumnDefinition x:Name="CitizenTraitHeaderColumn" Width="0" />
                         </Grid.ColumnDefinitions>
                         <TextBlock x:Name="CitizenHeaderKind" Grid.Column="0" Text="Kind" FontWeight="SemiBold" />
                         <TextBlock x:Name="CitizenHeaderName" Grid.Column="1" Text="Name" FontWeight="SemiBold" />
@@ -321,7 +338,7 @@
                                         <ColumnDefinition Width="95" />
                                         <ColumnDefinition Width="95" />
                                         <ColumnDefinition Width="95" />
-                                        <ColumnDefinition Width="1.4*" />
+                                        <ColumnDefinition Width="{Binding CitizenTraitColumnWidth, Mode=OneWay}" />
                                     </Grid.ColumnDefinitions>
                                     <StackPanel Grid.Column="0" Spacing="2">
                                         <TextBlock Text="{Binding KindPrimary, Mode=OneWay}" TextTrimming="CharacterEllipsis" FontSize="{Binding PrimaryFontSize, Mode=OneWay}" FontWeight="SemiBold" />
@@ -365,7 +382,7 @@
                                             <TextBox Grid.Column="1" Text="{Binding LoyaltyEdit, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" MinWidth="48" IsEnabled="{Binding CanEditCitizen}" ToolTipService.ToolTip="Loyalty" />
                                         </Grid>
                                     </StackPanel>
-                                    <Grid Grid.Column="7" ColumnSpacing="6">
+                                    <Grid Grid.Column="7" ColumnSpacing="6" Visibility="{Binding CitizenTraitEditorVisibility, Mode=OneWay}">
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="*" />
                                             <ColumnDefinition Width="32" />
@@ -374,7 +391,7 @@
                                             <TextBlock Text="{Binding TraitsPrimary, Mode=OneWay}" TextTrimming="CharacterEllipsis" FontSize="{Binding PrimaryFontSize, Mode=OneWay}" FontWeight="SemiBold" />
                                             <AutoSuggestBox Text="{Binding TraitIdsEdit, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                                             MinWidth="160"
-                                                            IsEnabled="{Binding CanEditCitizen}"
+                                                            IsEnabled="{Binding CanEditCitizenTraits}"
                                                             PlaceholderText="citizen_aura:..."
                                                             TextChanged="CitizenTraitBox_TextChanged"
                                                             SuggestionChosen="CitizenTraitBox_SuggestionChosen"

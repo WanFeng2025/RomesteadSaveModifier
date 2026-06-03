@@ -2,5 +2,8 @@
   "language": "zh-Hans",
   "uiScale": 0.94,
   "gameDirectory": "",
-  "debug-mode": false
+  "debug-mode": false,
+  "output_csv": false,
+  "unsafe-citizen-string-world-write": false,
+  "enable-citizen-trait-editor": true
 }

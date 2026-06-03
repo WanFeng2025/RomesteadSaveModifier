@@ -1,7 +1,8 @@
-﻿using System.Collections;
+using System.Collections;
 using System.Globalization;
 using System.IO.Compression;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Runtime.Loader;
 using System.Text;
 using System.Text.Json;
@@ -84,6 +85,7 @@ internal static class InspectorCore
 
             result.TotalFilesScanned = scanFiles.Count;
             result.TotalGameStates = result.GameStates.Count;
+            result.TotalWorldDescriptions = result.WorldDescriptions.Count;
             result.TotalPlayerSaves = result.PlayerSaves.Count;
 
             PrintSummary(result, options);
@@ -95,6 +97,9 @@ internal static class InspectorCore
                 AppLogger.Info("Wrote output files:");
                 AppLogger.Info("- summary.json");
                 AppLogger.Info("- files_scanned.csv");
+                AppLogger.Info("- world_desc.csv");
+                AppLogger.Info("- world_desc_binding_report.json");
+                AppLogger.Info("- world_desc_binding_report.csv");
                 AppLogger.Info("- state_entries.csv");
                 AppLogger.Info("- world_item_instances.csv");
                 AppLogger.Info("- world_item_totals.csv");
@@ -102,6 +107,9 @@ internal static class InspectorCore
                 AppLogger.Info("- world_inventory_slots.csv");
                 AppLogger.Info("- citizens.csv");
                 AppLogger.Info("- citizen_jobs.csv");
+                AppLogger.Info("- citizen_entity_binding_report.json");
+                AppLogger.Info("- citizen_entity_binding_report.csv");
+                AppLogger.Info("- citizen_aura_runtime_report.csv");
                 AppLogger.Info("- player_saves.csv");
                 AppLogger.Info("- player_items.csv");
                 AppLogger.Info("- player_item_totals.csv");
@@ -197,7 +205,7 @@ internal static class InspectorCore
         var roundtripBytes = serializerRoundtripBytes;
         var rawPreserveApplied = false;
         var rawPreserveNote = "";
-        if (TryBuildRawPreservedWorldRoundtrip(originalState, originalBytes, serializerRoundtripBytes, originalWasGzip, out var rawPreservedBytes, out rawPreserveNote))
+        if (TryBuildRawPreservedWorldRoundtrip(originalState, originalBytes, serializerRoundtripBytes, originalWasGzip, allowSameLengthEntryDeltaPatch: false, allowUnsafeHeaderBypass: false, out var rawPreservedBytes, out rawPreserveNote))
         {
             roundtripBytes = rawPreservedBytes;
             rawPreserveApplied = true;
@@ -326,7 +334,7 @@ internal static class InspectorCore
         return serialized.ToArray();
     }
 
-    private static bool TryBuildRawPreservedWorldRoundtrip(object originalState, byte[] originalFileBytes, byte[] serializedFileBytes, bool gzipOutput, out byte[] patchedFileBytes, out string note)
+    private static bool TryBuildRawPreservedWorldRoundtrip(object originalState, byte[] originalFileBytes, byte[] serializedFileBytes, bool gzipOutput, bool allowSameLengthEntryDeltaPatch, bool allowUnsafeHeaderBypass, out byte[] patchedFileBytes, out string note)
     {
         patchedFileBytes = Array.Empty<byte>();
         note = "";
@@ -356,17 +364,29 @@ internal static class InspectorCore
             }
 
             // Raw-preserved entry payloads can contain compact string-table indexes.
-            // Exact header equality is best. However, changing citizen traits/jobs can make
-            // the serializer append new strings to the string map before StateEntry[0].
-            // In that append-only case the old indexes used by WorldTiles/BiomeIds/Difficulties
-            // remain stable, so raw-preserve is still acceptable. We allow only bounded header
-            // growth and still validate the final file by deserializing it and comparing entries.
+            // We accept either exact headers or append-only string-map growth where all old string
+            // indexes remain stable. Reordering/rewriting the original string map is rejected.
             var originalHeaderLength = originalSpans.Count > 0 ? originalSpans[0].Offset : originalPayload.LongLength;
             var serializedHeaderLength = serializedSpans.Count > 0 ? serializedSpans[0].Offset : serializedPayload.LongLength;
+            var rawPreserveHeaderStable = true;
             if (!TryValidateRawPreserveHeader(originalPayload, originalHeaderLength, serializedPayload, serializedHeaderLength, out var headerNote))
             {
-                note = headerNote;
-                return false;
+                rawPreserveHeaderStable = false;
+                if (allowSameLengthEntryDeltaPatch && TryBuildSameLengthEntryDeltaPatch(originalState, originalPayload, serializedPayload, originalSpans, serializedSpans, gzipOutput, headerNote, out patchedFileBytes, out note))
+                {
+                    return true;
+                }
+
+                if (allowUnsafeHeaderBypass)
+                {
+                    AppLogger.Warn("Native hybrid world-array raw-preserve: accepting header/string-map difference for custom world array payload preservation. " + headerNote);
+                    headerNote = "header/string-map difference accepted for native hybrid custom world-array raw-preserve: " + headerNote;
+                }
+                else
+                {
+                    note = headerNote;
+                    return false;
+                }
             }
 
             var preserved = new List<string>();
@@ -385,11 +405,44 @@ internal static class InspectorCore
                 WriteBytesRange(patchedPayload, serializedPayload, cursor, serializedSpan.Offset - cursor);
 
                 var entryName = originalEntries[i].Name ?? "";
-                if (RawPreservedWorldEntryNames.Contains(entryName))
+                var originalSpanForDecision = originalSpans[i];
+                var preserveByName = RawPreservedWorldEntryNames.Contains(entryName);
+                var preserveByCollapsedLargeWorldPayload = allowUnsafeHeaderBypass
+                    && originalSpanForDecision.Length >= 5_000_000
+                    && serializedSpan.Length <= 1024;
+
+                if (preserveByName || preserveByCollapsedLargeWorldPayload)
                 {
                     var originalSpan = originalSpans[i];
-                    WriteBytesRange(patchedPayload, originalPayload, originalSpan.Offset, originalSpan.Length);
-                    preserved.Add($"{i}:{entryName}({originalSpan.Length:N0} bytes)");
+                    var reason = preserveByName ? entryName : "large-collapsed-world-payload";
+
+                    // v65: when the serializer rebuilt the compact string map, copying an entire
+                    // original top-level entry is not enough. The entry wrapper itself contains
+                    // compact string IDs for the ValueTuple field names and for Item1 (the state
+                    // entry name). If those IDs are left pointing at the old string map, the tool
+                    // can deserialize the result but the game may load the large array under the
+                    // wrong key and report a broken world. Rewrite only those wrapper string IDs
+                    // to the serialized file's string map, while keeping the original large array
+                    // value payload bytes.
+                    if (allowUnsafeHeaderBypass && !rawPreserveHeaderStable && !ByteRangesEqual(originalPayload, 0, serializedPayload, 0, Math.Min(originalHeaderLength, serializedHeaderLength)))
+                    {
+                        if (!TryRewriteRawPreservedTopLevelEntryForSerializedStringMap(
+                                originalPayload, originalSpan, originalHeaderLength,
+                                serializedPayload, serializedHeaderLength,
+                                out var rewrittenEntry, out var rewriteNote))
+                        {
+                            note = $"failed to rewrite compact string IDs for raw-preserved entry {i}:{reason}: {rewriteNote}";
+                            return false;
+                        }
+
+                        patchedPayload.Write(rewrittenEntry, 0, rewrittenEntry.Length);
+                        preserved.Add($"{i}:{reason}({originalSpan.Length:N0} bytes, remapped wrapper ids: {rewriteNote})");
+                    }
+                    else
+                    {
+                        WriteBytesRange(patchedPayload, originalPayload, originalSpan.Offset, originalSpan.Length);
+                        preserved.Add($"{i}:{reason}({originalSpan.Length:N0} bytes)");
+                    }
                 }
                 else
                 {
@@ -421,6 +474,94 @@ internal static class InspectorCore
         }
     }
 
+
+    private const int MaxSameLengthDeltaPatchBytes = 2048;
+
+    private static bool TryBuildSameLengthEntryDeltaPatch(object originalState, byte[] originalPayload, byte[] serializedPayload, List<EntryRawSpan> originalSpans, List<EntryRawSpan> serializedSpans, bool gzipOutput, string rejectedHeaderNote, out byte[] patchedFileBytes, out string note)
+    {
+        patchedFileBytes = Array.Empty<byte>();
+        note = "";
+        try
+        {
+            var originalEntries = EnumerateStateEntries(originalState).ToList();
+            if (originalEntries.Count != originalSpans.Count || originalEntries.Count != serializedSpans.Count)
+            {
+                note = "same-length delta patch rejected: entry count mismatch after header rejection. " + rejectedHeaderNote;
+                return false;
+            }
+
+            var changedEntries = new List<(int Index, string Name, EntryRawSpan Original, EntryRawSpan Serialized, List<int> DiffOffsets)>();
+            for (var i = 0; i < originalSpans.Count; i++)
+            {
+                var name = originalEntries[i].Name ?? "";
+                if (RawPreservedWorldEntryNames.Contains(name)) continue;
+
+                var originalSpan = originalSpans[i];
+                var serializedSpan = serializedSpans[i];
+                if (originalSpan.Length != serializedSpan.Length)
+                {
+                    note = $"same-length delta patch rejected: entry {i}:{name} length changed. original={originalSpan.Length:N0}, serialized={serializedSpan.Length:N0}. " + rejectedHeaderNote;
+                    return false;
+                }
+
+                var diffs = new List<int>();
+                for (long j = 0; j < originalSpan.Length; j++)
+                {
+                    var oi = checked((int)(originalSpan.Offset + j));
+                    var si = checked((int)(serializedSpan.Offset + j));
+                    if (originalPayload[oi] != serializedPayload[si])
+                    {
+                        diffs.Add(checked((int)j));
+                        if (diffs.Count > MaxSameLengthDeltaPatchBytes)
+                        {
+                            note = $"same-length delta patch rejected: entry {i}:{name} changed too many bytes (> {MaxSameLengthDeltaPatchBytes}). " + rejectedHeaderNote;
+                            return false;
+                        }
+                    }
+                }
+
+                if (diffs.Count > 0) changedEntries.Add((i, name, originalSpan, serializedSpan, diffs));
+            }
+
+            if (changedEntries.Count == 0)
+            {
+                note = "same-length delta patch rejected: no changed non-array entries found. " + rejectedHeaderNote;
+                return false;
+            }
+
+            var unsupported = changedEntries.FirstOrDefault(e => !string.Equals(e.Name, "Citizens", StringComparison.OrdinalIgnoreCase));
+            if (unsupported.Name != null)
+            {
+                note = $"same-length delta patch rejected: changed entry {unsupported.Index}:{unsupported.Name} is not currently supported. " + rejectedHeaderNote;
+                return false;
+            }
+
+            var patchedPayload = (byte[])originalPayload.Clone();
+            var totalDiffs = 0;
+            foreach (var changed in changedEntries)
+            {
+                totalDiffs += changed.DiffOffsets.Count;
+                foreach (var relative in changed.DiffOffsets)
+                {
+                    var targetIndex = checked((int)(changed.Original.Offset + relative));
+                    var sourceIndex = checked((int)(changed.Serialized.Offset + relative));
+                    patchedPayload[targetIndex] = serializedPayload[sourceIndex];
+                }
+            }
+
+            patchedFileBytes = WrapPayloadWithCompression(patchedPayload, gzipOutput);
+            note = $"same-length Citizens delta patch; kept original header/string map and original world arrays. changedEntries={changedEntries.Count}, changedBytes={totalDiffs:N0}. Original header rejection was: {rejectedHeaderNote}";
+            AppLogger.Info("Raw-preserve fallback accepted: " + note);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            note = "same-length delta patch failed: " + ex.GetType().Name + " | " + ex.Message + ". " + rejectedHeaderNote;
+            patchedFileBytes = Array.Empty<byte>();
+            return false;
+        }
+    }
+
     private static void WriteBytesRange(MemoryStream target, byte[] source, long offset, long length)
     {
         if (length <= 0) return;
@@ -442,6 +583,167 @@ internal static class InspectorCore
         return true;
     }
 
+
+    private static bool TryRewriteRawPreservedTopLevelEntryForSerializedStringMap(
+        byte[] originalPayload,
+        EntryRawSpan originalSpan,
+        long originalHeaderLength,
+        byte[] serializedPayload,
+        long serializedHeaderLength,
+        out byte[] rewrittenEntry,
+        out string note)
+    {
+        rewrittenEntry = Array.Empty<byte>();
+        note = "";
+        try
+        {
+            if (!TryReadStringMapHeader(originalPayload, originalHeaderLength, out var originalHeader, out var originalHeaderNote) || !originalHeader.HasDirectStringMap)
+            {
+                note = "cannot parse original direct string map: " + originalHeaderNote;
+                return false;
+            }
+
+            if (!TryReadStringMapHeader(serializedPayload, serializedHeaderLength, out var serializedHeader, out var serializedHeaderNote) || !serializedHeader.HasDirectStringMap)
+            {
+                note = "cannot parse serialized direct string map: " + serializedHeaderNote;
+                return false;
+            }
+
+            var serializedStringToId = new Dictionary<string, int>(StringComparer.Ordinal);
+            for (var i = 0; i < serializedHeader.Strings.Count; i++)
+            {
+                if (!serializedStringToId.ContainsKey(serializedHeader.Strings[i]))
+                    serializedStringToId[serializedHeader.Strings[i]] = i + 1;
+            }
+
+            string? OriginalStringById(int id)
+            {
+                if (id == 0) return null;
+                var idx = id - 1;
+                return idx >= 0 && idx < originalHeader.Strings.Count ? originalHeader.Strings[idx] : null;
+            }
+
+            bool TryMapOriginalStringId(int originalId, out int serializedId, out string? value)
+            {
+                serializedId = 0;
+                value = OriginalStringById(originalId);
+                if (originalId == 0)
+                {
+                    serializedId = 0;
+                    return true;
+                }
+                if (value == null) return false;
+                return serializedStringToId.TryGetValue(value, out serializedId);
+            }
+
+            using var input = new MemoryStream(originalPayload, checked((int)originalSpan.Offset), checked((int)originalSpan.Length), writable: false);
+            using var reader = new BinaryReader(input, Encoding.UTF8, leaveOpen: true);
+            var fieldCount = Read7BitEncodedIntStrict(reader);
+            if (fieldCount == 0)
+            {
+                rewrittenEntry = originalPayload.AsSpan(checked((int)originalSpan.Offset), checked((int)originalSpan.Length)).ToArray();
+                note = "fieldCount=0";
+                return true;
+            }
+
+            var declaredBodyLength = Read7BitEncodedIntStrict(reader);
+            var bodyStart = input.Position;
+            var bodyEnd = bodyStart + declaredBodyLength;
+            if (bodyEnd > input.Length)
+            {
+                note = $"declared body length exceeds entry length. body={declaredBodyLength}, entry={originalSpan.Length}";
+                return false;
+            }
+
+            using var bodyOut = new MemoryStream();
+            var remapped = new List<string>();
+            for (var f = 0; f < fieldCount; f++)
+            {
+                var typeCode = reader.ReadByte();
+                var oldFieldNameId = Read7BitEncodedIntStrict(reader);
+                if (!TryMapOriginalStringId(oldFieldNameId, out var newFieldNameId, out var fieldName))
+                {
+                    note = $"field name id {oldFieldNameId} is not present in serialized string map";
+                    return false;
+                }
+
+                var valueLength = Read7BitEncodedIntStrict(reader);
+                var valueBytes = reader.ReadBytes(valueLength);
+                if (valueBytes.Length != valueLength)
+                {
+                    note = "unexpected end while reading field value";
+                    return false;
+                }
+
+                if (oldFieldNameId != newFieldNameId)
+                    remapped.Add($"field:{fieldName ?? "<null>"} {oldFieldNameId}->{newFieldNameId}");
+
+                byte[] newValueBytes = valueBytes;
+                if (typeCode == 34) // CompactStringSerializer payload: one 7-bit string id.
+                {
+                    using var valueInput = new MemoryStream(valueBytes, writable: false);
+                    using var valueReader = new BinaryReader(valueInput, Encoding.UTF8, leaveOpen: true);
+                    var oldStringId = Read7BitEncodedIntStrict(valueReader);
+                    if (valueInput.Position == valueInput.Length)
+                    {
+                        if (!TryMapOriginalStringId(oldStringId, out var newStringId, out var stringValue))
+                        {
+                            note = $"compact string value id {oldStringId} is not present in serialized string map";
+                            return false;
+                        }
+                        if (oldStringId != newStringId)
+                        {
+                            using var valueOutput = new MemoryStream();
+                            Write7BitEncodedInt(valueOutput, newStringId);
+                            newValueBytes = valueOutput.ToArray();
+                            remapped.Add($"value:{fieldName ?? "<null>"}='{stringValue ?? "<null>"}' {oldStringId}->{newStringId}");
+                        }
+                    }
+                }
+
+                bodyOut.WriteByte(typeCode);
+                Write7BitEncodedInt(bodyOut, newFieldNameId);
+                Write7BitEncodedInt(bodyOut, newValueBytes.Length);
+                bodyOut.Write(newValueBytes, 0, newValueBytes.Length);
+            }
+
+            if (reader.BaseStream.Position != bodyEnd)
+            {
+                note = $"field parser did not end at declared body end. pos={reader.BaseStream.Position}, end={bodyEnd}";
+                return false;
+            }
+
+            using var output = new MemoryStream();
+            Write7BitEncodedInt(output, fieldCount);
+            var newBody = bodyOut.ToArray();
+            Write7BitEncodedInt(output, newBody.Length);
+            output.Write(newBody, 0, newBody.Length);
+            rewrittenEntry = output.ToArray();
+            note = remapped.Count == 0 ? "no wrapper id changes needed" : string.Join("; ", remapped.Take(8)) + (remapped.Count > 8 ? $"; ... +{remapped.Count - 8} more" : "");
+            return true;
+        }
+        catch (Exception ex)
+        {
+            note = ex.GetType().Name + " | " + ex.Message;
+            rewrittenEntry = Array.Empty<byte>();
+            return false;
+        }
+    }
+
+    private static void Write7BitEncodedInt(Stream stream, int value)
+    {
+        uint v = unchecked((uint)value);
+        while (v >= 0x80)
+        {
+            stream.WriteByte((byte)(v | 0x80));
+            v >>= 7;
+        }
+        stream.WriteByte((byte)v);
+    }
+
+    private const int MaxAllowedStringMapAppendBytes = 64 * 1024;
+    private const int MaxLoggedAppendedStringMapValues = 12;
+
     private static bool TryValidateRawPreserveHeader(byte[] originalPayload, long originalHeaderLength, byte[] serializedPayload, long serializedHeaderLength, out string note)
     {
         note = "";
@@ -461,30 +763,152 @@ internal static class InspectorCore
         }
 
         var delta = serializedHeaderLength - originalHeaderLength;
-
-        // A negative delta means the string map/header shrank. Original raw array payloads may
-        // point to indexes that no longer exist, so this is unsafe.
         if (delta < 0)
         {
-            note = $"serialized header/string map shrank. originalPrefix={originalHeaderLength:N0} bytes, serializedPrefix={serializedHeaderLength:N0} bytes. Refusing raw-preserve patch.";
+            note = $"serialized header/string map shrank. originalPrefix={originalHeaderLength:N0} bytes, serializedPrefix={serializedHeaderLength:N0} bytes, delta={delta:N0} bytes. Refusing raw-preserve patch.";
+            AppLogger.Warn("Raw-preserve header compatibility rejected: " + note);
             return false;
         }
 
-        // Large header growth usually means a substantial string-table/layout rewrite rather
-        // than a few new trait/job/aura strings. Keep this conservative.
-        const long MaxAllowedHeaderGrowthBytes = 64 * 1024;
-        if (delta > MaxAllowedHeaderGrowthBytes)
+        if (delta > MaxAllowedStringMapAppendBytes)
         {
-            note = $"serialized header/string map changed too much. originalPrefix={originalHeaderLength:N0} bytes, serializedPrefix={serializedHeaderLength:N0} bytes, delta={delta:N0} bytes. Refusing raw-preserve patch.";
+            note = $"serialized header/string map grew too much. originalPrefix={originalHeaderLength:N0} bytes, serializedPrefix={serializedHeaderLength:N0} bytes, delta={delta:N0} bytes, limit={MaxAllowedStringMapAppendBytes:N0} bytes. Refusing raw-preserve patch.";
+            AppLogger.Warn("Raw-preserve header compatibility rejected: " + note);
             return false;
         }
 
-        // If the serialized header grew only slightly, treat it as string-map extension.
-        // The final modified file is still deserialized and its StateEntries are compared
-        // before input/game_state can be overwritten.
-        note = $"header/string map extended by {delta:N0} bytes; raw-preserve allowed with post-write validation";
-        AppLogger.Info("Raw-preserve header compatibility: " + note);
+        // Balanced mode: allow new strings only when the serialized string map keeps the entire
+        // original string map as an exact prefix and only appends new values at the end. In that
+        // case old string-map indexes used by raw-preserved WorldTiles/BiomeIds/Difficulties stay
+        // stable. This is stricter than R1.1.33's blind "small growth" rule, but less restrictive
+        // than R1.1.34's byte-for-byte header requirement.
+        if (!TryReadStringMapHeader(originalPayload, originalHeaderLength, out var originalHeader, out var originalMapNote))
+        {
+            note = "cannot parse original string map/header safely: " + originalMapNote;
+            AppLogger.Warn("Raw-preserve header compatibility rejected: " + note);
+            return false;
+        }
+
+        if (!TryReadStringMapHeader(serializedPayload, serializedHeaderLength, out var serializedHeader, out var serializedMapNote))
+        {
+            note = "cannot parse serialized string map/header safely: " + serializedMapNote;
+            AppLogger.Warn("Raw-preserve header compatibility rejected: " + note);
+            return false;
+        }
+
+        if (!originalHeader.HasDirectStringMap || !serializedHeader.HasDirectStringMap)
+        {
+            note = $"header/string map changed but direct string maps were not available for prefix validation. original={originalMapNote}, serialized={serializedMapNote}. Refusing raw-preserve patch.";
+            AppLogger.Warn("Raw-preserve header compatibility rejected: " + note);
+            return false;
+        }
+
+        if (!ByteRangesEqual(originalPayload, originalHeader.StringMapEndOffset, serializedPayload, serializedHeader.StringMapEndOffset, originalHeaderLength - originalHeader.StringMapEndOffset))
+        {
+            note = $"root/list header after string map changed. originalPrefix={originalHeaderLength:N0} bytes, serializedPrefix={serializedHeaderLength:N0} bytes. Refusing raw-preserve patch.";
+            AppLogger.Warn("Raw-preserve header compatibility rejected: " + note);
+            return false;
+        }
+
+        if (serializedHeader.Strings.Count < originalHeader.Strings.Count)
+        {
+            note = $"serialized string map has fewer strings. originalStrings={originalHeader.Strings.Count:N0}, serializedStrings={serializedHeader.Strings.Count:N0}. Refusing raw-preserve patch.";
+            AppLogger.Warn("Raw-preserve header compatibility rejected: " + note);
+            return false;
+        }
+
+        for (var i = 0; i < originalHeader.Strings.Count; i++)
+        {
+            if (!string.Equals(originalHeader.Strings[i], serializedHeader.Strings[i], StringComparison.Ordinal))
+            {
+                note = $"serialized string map reordered or rewrote existing entry at index {i}. Refusing raw-preserve patch because old array indexes would no longer be stable.";
+                AppLogger.Warn("Raw-preserve header compatibility rejected: " + note);
+                return false;
+            }
+        }
+
+        var appended = serializedHeader.Strings.Skip(originalHeader.Strings.Count).ToList();
+        if (appended.Count == 0)
+        {
+            note = $"header changed but no appended string-map values were detected. originalPrefix={originalHeaderLength:N0} bytes, serializedPrefix={serializedHeaderLength:N0} bytes. Refusing raw-preserve patch.";
+            AppLogger.Warn("Raw-preserve header compatibility rejected: " + note);
+            return false;
+        }
+
+        var appendedPreview = string.Join("; ", appended.Take(MaxLoggedAppendedStringMapValues));
+        if (appended.Count > MaxLoggedAppendedStringMapValues) appendedPreview += $"; ... +{appended.Count - MaxLoggedAppendedStringMapValues} more";
+        note = $"header/string map append-only compatible. originalPrefix={originalHeaderLength:N0} bytes, serializedPrefix={serializedHeaderLength:N0} bytes, delta={delta:N0} bytes, appendedStrings={appended.Count:N0}: {appendedPreview}";
+        AppLogger.Info("Raw-preserve header compatibility accepted: " + note);
         return true;
+    }
+
+    private sealed record StringMapHeaderInfo(bool HasDirectStringMap, List<string> Strings, long StringMapEndOffset);
+
+    private static bool TryReadStringMapHeader(byte[] payload, long preEntryHeaderLength, out StringMapHeaderInfo header, out string note)
+    {
+        header = new StringMapHeaderInfo(false, new List<string>(), 0);
+        note = "";
+
+        try
+        {
+            if (preEntryHeaderLength < 4 || preEntryHeaderLength > payload.LongLength)
+            {
+                note = $"invalid pre-entry header length {preEntryHeaderLength:N0}.";
+                return false;
+            }
+
+            using var memory = new MemoryStream(payload, writable: false);
+            using var reader = new BinaryReader(memory, Encoding.UTF8, leaveOpen: true);
+            var magic = reader.ReadUInt32();
+
+            if (magic == 6448483u)
+            {
+                header = new StringMapHeaderInfo(false, new List<string>(), memory.Position);
+                note = "payload has no serialized string map.";
+                return true;
+            }
+
+            if (magic != 23225699u)
+            {
+                note = "unexpected Candide header magic: " + magic.ToString(CultureInfo.InvariantCulture);
+                return false;
+            }
+
+            var count = Read7BitEncodedIntStrict(reader);
+            if (count < 0)
+            {
+                note = "negative string map count.";
+                return false;
+            }
+
+            var strings = new List<string>(count);
+            if (count > 0)
+            {
+                var elementTypeCode = reader.ReadByte();
+                if (elementTypeCode != 33)
+                {
+                    // Type 34 is an integer-coded map in this serializer. It is valid, but we
+                    // cannot prove append-only string compatibility from it, so header changes
+                    // must be rejected for safety.
+                    for (var i = 0; i < count; i++) _ = Read7BitEncodedIntStrict(reader);
+                    header = new StringMapHeaderInfo(false, strings, memory.Position);
+                    note = "string map element type is not direct string values: " + elementTypeCode.ToString(CultureInfo.InvariantCulture);
+                    return true;
+                }
+
+                for (var i = 0; i < count; i++) strings.Add(reader.ReadString());
+            }
+
+            header = new StringMapHeaderInfo(true, strings, memory.Position);
+            note = $"direct string map count={strings.Count:N0}, mapEnd={memory.Position:N0}.";
+            return true;
+        }
+        catch (Exception ex)
+        {
+            note = ex.GetType().Name + " | " + ex.Message;
+            header = new StringMapHeaderInfo(false, new List<string>(), 0);
+            return false;
+        }
     }
 
     private static byte[] WrapPayloadWithCompression(byte[] payload, bool gzip)
@@ -1112,12 +1536,12 @@ internal static class InspectorCore
             AppLogger.Info($"已复制修改后玩家文件到 output：{outputCopy}");
         }
 
-        return new SaveResult(savedFiles, changedItems, backupInfo.BackupDirectory, outputDir, backupInfo.BackupIndex, $"保存完成：{savedFiles} 个文件，{changedItems} 项变化。备份批次 n={backupInfo.BackupIndex}。修改后文件已复制到 output。");
+        return new SaveResult(savedFiles, changedItems, backupInfo.BackupDirectory, outputDir, backupInfo.BackupIndex, $"保存完成：{savedFiles} 个文件，{changedItems} 项变化。备份批次 n={backupInfo.BackupIndex}。修改后世界文件已复制到 output/world。");
     }
 
 
 
-    public static SaveResult SaveCitizenChanges(string libDir, string inputDir, string backupDir, string outputDir, IReadOnlyList<CitizenUpdate> citizenUpdates)
+    public static SaveResult SaveCitizenChanges(string libDir, string inputDir, string backupDir, string outputDir, IReadOnlyList<CitizenUpdate> citizenUpdates, bool unsafeCitizenStringWorldWrite = false, bool debugMode = false, bool outputCsv = false)
     {
         ArgumentNullException.ThrowIfNull(citizenUpdates);
         if (citizenUpdates.Count == 0) return new SaveResult(0, 0, "", "", 0, "没有可保存的村民变化。");
@@ -1155,10 +1579,39 @@ internal static class InspectorCore
             }
 
             var beforeInspection = InspectGameState(gameStateFile, state, new Options { Limit = 2000 });
+            var expectedWorldDescGameId = TryGetSingleWorldDescGameIdFromInput(inputDir);
+            if (expectedWorldDescGameId.HasValue)
+            {
+                var currentGameId = beforeInspection.GameId;
+                if (!Guid.TryParse(currentGameId, out var currentGuid) || currentGuid == Guid.Empty)
+                {
+                    if (TrySetTopLevelGameStateGameId(state, expectedWorldDescGameId.Value))
+                    {
+                        AppLogger.Warn($"game_state.GameId 为空/全 0，已按 world_desc.GameId 修复：{expectedWorldDescGameId.Value:D}");
+                        beforeInspection.GameId = expectedWorldDescGameId.Value.ToString("D");
+                    }
+                    else
+                    {
+                        throw new InvalidOperationException("world_desc/game_state 绑定失败：game_state.GameId 为空/全 0，但无法修复 GameId StateEntry。");
+                    }
+                }
+                else if (currentGuid != expectedWorldDescGameId.Value)
+                {
+                    throw new InvalidOperationException($"world_desc/game_state 绑定失败：game_state.GameId={currentGuid:D} 与 world_desc.GameId={expectedWorldDescGameId.Value:D} 不一致。请确认 input 中的 game_state/world_desc 来自同一个世界。");
+                }
+            }
 
             var changedThisFile = 0;
+            var traitsChangedThisFile = false;
+            var traitDiffRows = new List<CitizenTraitDeepDiffRow>();
             foreach (var update in updates)
             {
+                if (update.CurrentJobLevel < 1 || update.CurrentJobLevel > 10)
+                {
+                    AppLogger.Error($"保存跳过村民：CurrentJobLevel 必须为 1-10。CitizenId={update.CitizenId} Requested={update.CurrentJobLevel}");
+                    continue;
+                }
+
                 if (update.LoyaltyLevel < 0 || update.LoyaltyLevel > 4)
                 {
                     AppLogger.Error($"保存跳过村民：LoyaltyLevel 必须为 0-4。CitizenId={update.CitizenId} Requested={update.LoyaltyLevel}");
@@ -1214,7 +1667,25 @@ internal static class InspectorCore
                     changedCitizen++;
                 }
 
-                if (ApplyCitizenTraits(citizen, update.TraitIds)) changedCitizen++;
+                var beforeTraitIdsForDiff = string.Join(";", ReadCurrentCitizenTraitIds(citizen).Select(NormalizeCitizenAuraIdForSave));
+                var beforeAuraObjectsForDiff = DescribeCitizenAuraObjectsForReport(citizen);
+                if (ApplyCitizenTraits(citizen, update.TraitIds))
+                {
+                    var afterTraitIdsForDiff = string.Join(";", ReadCurrentCitizenTraitIds(citizen).Select(NormalizeCitizenAuraIdForSave));
+                    var afterAuraObjectsForDiff = DescribeCitizenAuraObjectsForReport(citizen);
+                    traitDiffRows.Add(new CitizenTraitDeepDiffRow(
+                        Path.GetFileName(gameStateFile),
+                        update.CitizenId,
+                        update.EntityId,
+                        ReadStringId(ReadMember(citizen, "Name")),
+                        update.TraitIds,
+                        beforeTraitIdsForDiff,
+                        afterTraitIdsForDiff,
+                        beforeAuraObjectsForDiff,
+                        afterAuraObjectsForDiff));
+                    changedCitizen++;
+                    traitsChangedThisFile = true;
+                }
 
                 if (changedCitizen > 0)
                 {
@@ -1231,24 +1702,64 @@ internal static class InspectorCore
             }
 
             byte[] serializerBytes;
-            try
+            byte[] modifiedBytes;
+            string rawPreserveNote;
+            string serializationModeNote;
+
+            if (traitsChangedThisFile)
             {
-                serializerBytes = SerializeGameStateToBytes(state, wasGzip);
+                AppLogger.Warn("村民特质/buff/debuff 已变更：将尝试使用游戏原生 ServerGameState 静态上下文重写 game_state。此路线不使用 raw-preserve 拼接，必须通过完整 StateEntry 校验后才会覆盖 input/game_state。");
+                try
+                {
+                    serializerBytes = SerializeGameStateToBytesUsingNativeServerState(state, bytes, wasGzip, out serializationModeNote);
+                }
+                catch (Exception ex)
+                {
+                    if (outputCsv) WriteWorldWriteNativeFailureReport(outputDir, gameStateFile, ex);
+                    throw new InvalidOperationException("原生世界写入失败：无法用 GameSaveManager/ServerGameState 静态上下文序列化修改后的 game_state。" + ex.Message, ex);
+                }
+
+                if (!TryBuildRawPreservedWorldRoundtrip(state, bytes, serializerBytes, wasGzip, allowSameLengthEntryDeltaPatch: false, allowUnsafeHeaderBypass: true, out modifiedBytes, out var nativeHybridRawPreserveNote))
+                {
+                    throw new InvalidOperationException("原生世界写入失败：无法在原生序列化结果中保留大型世界数组块。" + nativeHybridRawPreserveNote);
+                }
+
+                rawPreserveNote = "native-full-server-state-writer + hybrid raw-preserve; " + serializationModeNote + " | " + nativeHybridRawPreserveNote;
             }
-            catch (Exception ex)
+            else
             {
-                throw new InvalidOperationException("安全世界写入失败：修改后的 game_state 无法序列化。" + ex.Message, ex);
+                try
+                {
+                    serializerBytes = SerializeGameStateToBytes(state, wasGzip);
+                }
+                catch (Exception ex)
+                {
+                    throw new InvalidOperationException("安全世界写入失败：修改后的 game_state 无法序列化。" + ex.Message, ex);
+                }
+
+                // Numeric-only citizen changes may use the same-length Citizens delta fallback when the full serializer changes the header.
+                var allowSameLengthEntryDeltaPatch = true;
+                if (!TryBuildRawPreservedWorldRoundtrip(state, bytes, serializerBytes, wasGzip, allowSameLengthEntryDeltaPatch, allowUnsafeHeaderBypass: false, out modifiedBytes, out rawPreserveNote))
+                {
+                    throw new InvalidOperationException("安全世界写入失败：无法保留原始大型世界数组块，已拒绝覆盖 input/game_state。原因：" + rawPreserveNote);
+                }
             }
 
-            var unpatchedOutput = Path.Combine(outputDir, Path.GetFileName(gameStateFile) + ".unpatched_DO_NOT_USE");
-            File.WriteAllBytes(unpatchedOutput, serializerBytes);
-
-            if (!TryBuildRawPreservedWorldRoundtrip(state, bytes, serializerBytes, wasGzip, out var modifiedBytes, out var rawPreserveNote))
+            string unpatchedOutput = "";
+            if (debugMode)
             {
-                throw new InvalidOperationException("安全世界写入失败：无法保留原始大型世界数组块，已拒绝覆盖 input/game_state。原因：" + rawPreserveNote);
+                var debugDir = Path.Combine(outputDir, "debug");
+                Directory.CreateDirectory(debugDir);
+                unpatchedOutput = Path.Combine(debugDir, Path.GetFileName(gameStateFile) + ".unpatched_DO_NOT_USE");
+                File.WriteAllBytes(unpatchedOutput, serializerBytes);
             }
 
-            var validationErrors = ValidateModifiedGameStateBytes(gameStateFile, bytes, modifiedBytes, state, beforeInspection, outputDir, rawPreserveNote);
+            if (outputCsv && traitDiffRows.Count > 0)
+            {
+                WriteCitizenTraitDeepDiffReport(outputDir, traitDiffRows);
+            }
+
+            var validationErrors = ValidateModifiedGameStateBytes(gameStateFile, bytes, modifiedBytes, state, beforeInspection, outputDir, rawPreserveNote, outputCsv);
             if (validationErrors.Count > 0)
             {
                 throw new InvalidOperationException("安全世界写入校验失败，已拒绝覆盖 input/game_state。" + Environment.NewLine + string.Join(Environment.NewLine, validationErrors.Select(e => "- " + e)));
@@ -1259,19 +1770,395 @@ internal static class InspectorCore
             File.WriteAllBytes(temp, modifiedBytesForWrite);
             File.Move(temp, gameStateFile, overwrite: true);
 
-            var outputCopy = Path.Combine(outputDir, Path.GetFileName(gameStateFile));
+            var worldOutputDir = Path.Combine(outputDir, "world");
+            Directory.CreateDirectory(worldOutputDir);
+            var outputCopy = Path.Combine(worldOutputDir, Path.GetFileName(gameStateFile));
             File.WriteAllBytes(outputCopy, modifiedBytesForWrite);
+            WriteWorldFolderOutput(inputDir, worldOutputDir, gameStateFile, modifiedBytesForWrite);
+
+            var bindingReport = outputCsv ? WriteWorldDescBindingReportForInput(inputDir, outputDir, "after-save") : null;
+            if (bindingReport != null && !bindingReport.Passed)
+            {
+                throw new InvalidOperationException("world_desc/game_state 绑定校验失败，已拒绝覆盖 input/game_state。" + Environment.NewLine + string.Join(Environment.NewLine, bindingReport.Errors.Select(e => "- " + e)));
+            }
 
             savedFiles++;
             AppLogger.Info($"已安全保存 game_state：{gameStateFile} ({changedThisFile} 项村民变化，格式={note}, raw-preserve={rawPreserveNote})");
-            AppLogger.Info($"已复制修改后 game_state 到 output：{outputCopy}");
-            AppLogger.Info($"未保留数组块的危险输出仅用于诊断，禁止使用：{unpatchedOutput}");
+            AppLogger.Info($"已复制修改后 game_state 到 output/world：{outputCopy}");
+            if (debugMode && !string.IsNullOrWhiteSpace(unpatchedOutput)) AppLogger.Info($"未保留数组块的危险输出仅用于诊断，禁止使用：{unpatchedOutput}");
         }
 
-        return new SaveResult(savedFiles, changedItems, backupInfo.BackupDirectory, outputDir, backupInfo.BackupIndex, $"村民保存完成：{savedFiles} 个 game_state，{changedItems} 项变化。备份批次 n={backupInfo.BackupIndex}。修改后文件已复制到 output。");
+        return new SaveResult(savedFiles, changedItems, backupInfo.BackupDirectory, outputDir, backupInfo.BackupIndex, $"村民保存完成：{savedFiles} 个 game_state，{changedItems} 项变化。备份批次 n={backupInfo.BackupIndex}。修改后世界文件已复制到 output/world。");
     }
 
-    private static List<string> ValidateModifiedGameStateBytes(string gameStateFile, byte[] originalBytes, byte[] modifiedBytes, object stateForEntryNames, GameStateInspectionResult beforeInspection, string outputDir, string rawPreserveNote)
+
+
+    private static void WriteCitizenTraitDeepDiffReport(string outputDir, IReadOnlyList<CitizenTraitDeepDiffRow> rows)
+    {
+        try
+        {
+            Directory.CreateDirectory(outputDir);
+            var report = new
+            {
+                Passed = true,
+                Stage = "citizen-trait-deep-diff",
+                Count = rows.Count,
+                Note = "Compares the target CitizenModel trait/aura fields before and after the editor changes them. This is diagnostic and does not prove the game will load the save.",
+                Rows = rows
+            };
+            File.WriteAllText(Path.Combine(outputDir, "citizen_trait_deep_diff.json"), JsonSerializer.Serialize(report, new JsonSerializerOptions { WriteIndented = true }), Encoding.UTF8);
+            WriteCsv(Path.Combine(outputDir, "citizen_trait_deep_diff.csv"), rows,
+                ["SourceFile", "CitizenId", "EntityId", "Name", "RequestedTraitIds", "BeforeTraitIds", "AfterTraitIds", "BeforeAuraObjects", "AfterAuraObjects"],
+                r => [r.SourceFile, r.CitizenId, r.EntityId, r.Name, r.RequestedTraitIds, r.BeforeTraitIds, r.AfterTraitIds, r.BeforeAuraObjects, r.AfterAuraObjects]);
+            AppLogger.Info("已输出村民特质深度 diff：citizen_trait_deep_diff.json/csv");
+        }
+        catch (Exception ex)
+        {
+            AppLogger.Warn("输出 citizen_trait_deep_diff 失败：" + ex.Message);
+        }
+    }
+
+    private static string DescribeCitizenAuraObjectsForReport(object citizen)
+    {
+        var parts = new List<string>();
+        var wildList = ReadMember(citizen, "CitizenAuras");
+        var wild = EnumerateSequence(wildList).Select(v => v?.ToString() ?? "").Where(v => !string.IsNullOrWhiteSpace(v)).ToList();
+        if (wild.Count > 0) parts.Add("CitizenAuras=" + string.Join(";", wild));
+
+        var auras = ReadMember(citizen, "Auras");
+        var index = 0;
+        foreach (var aura in EnumerateSequence(auras))
+        {
+            if (aura == null) continue;
+            var fields = new List<string>();
+            foreach (var name in new[] { "Id", "DataId", "Type", "IsBuff", "Duration", "Timer", "InstanceTypeId", "FromTown" })
+            {
+                var value = ReadMember(aura, name);
+                fields.Add(name + "=" + (value?.ToString() ?? "<null>"));
+            }
+            var stats = ReadMember(aura, "Stats") ?? ReadMember(aura, "StatsToAdd");
+            if (stats != null) fields.Add("Stats=" + TrimForReport(SafeMemberSummary(stats), 300));
+            parts.Add("Auras[" + index.ToString(CultureInfo.InvariantCulture) + "]{" + string.Join(",", fields) + "}");
+            index++;
+        }
+        return string.Join(" || ", parts);
+    }
+
+
+    private static void WriteWorldFolderOutput(string inputDir, string worldOutputDir, string gameStateFile, byte[] gameStateBytes)
+    {
+        try
+        {
+            Directory.CreateDirectory(worldOutputDir);
+
+            var worldDescFile = FindSingleWorldDescFile(inputDir);
+            if (worldDescFile == null)
+            {
+                AppLogger.Warn("output/world 已输出 game_state，但 input 中没有 world_desc，无法输出匹配 world_desc。");
+                return;
+            }
+
+            var worldDescBytes = File.ReadAllBytes(worldDescFile);
+            if (!TryDeserializeWorldDescriptionWithFormat(worldDescBytes, out var worldDesc, out var worldDescWasGzip, out var worldDescNote) || worldDesc == null)
+            {
+                File.Copy(worldDescFile, Path.Combine(worldOutputDir, "world_desc"), overwrite: true);
+                AppLogger.Warn("output/world 已复制原始 world_desc，但 world_desc 反序列化失败，无法同步字段：" + worldDescNote);
+                return;
+            }
+
+            string gameStateGameId = "";
+            double? gameStateTimePlayed = null;
+            if (TryDeserializeGameStateWithFormat(gameStateBytes, out var pairedState, out _, out _) && pairedState != null)
+            {
+                var inspection = InspectGameState(gameStateFile, pairedState, new Options { Limit = 2000 });
+                gameStateGameId = inspection.GameId;
+                gameStateTimePlayed = inspection.TimePlayed;
+            }
+
+            if (Guid.TryParse(gameStateGameId, out var parsedGameId) && parsedGameId != Guid.Empty)
+                TrySetMember(worldDesc, "GameId", parsedGameId);
+            if (gameStateTimePlayed.HasValue)
+                TrySetMember(worldDesc, "TimePlayed", gameStateTimePlayed.Value);
+            TrySetMember(worldDesc, "LastPlayed", DateTime.Now);
+            TrySetMember(worldDesc, "Broken", false);
+            TrySetMember(worldDesc, "LoadedFromBackup", false);
+
+            File.WriteAllBytes(Path.Combine(worldOutputDir, "world_desc"), SerializeWorldDescriptionToBytes(worldDesc, worldDescWasGzip));
+            AppLogger.Info("已输出匹配 world_desc 到 output/world：" + Path.Combine(worldOutputDir, "world_desc"));
+        }
+        catch (Exception ex)
+        {
+            AppLogger.Warn("输出 output/world/world_desc 失败：" + ex.Message);
+        }
+    }
+
+    private static void WriteWorldWriteLabOutput(string inputDir, string outputDir, string gameStateFile, byte[] originalGameStateBytes, byte[] modifiedGameStateBytes, string rawPreserveNote, bool traitChanged)
+    {
+        try
+        {
+            var labRoot = Path.Combine(outputDir, "world_write_lab");
+            var originalDir = Path.Combine(labRoot, "00_original_copy_pair");
+            var modifiedDir = Path.Combine(labRoot, "01_saved_pair");
+            Directory.CreateDirectory(originalDir);
+            Directory.CreateDirectory(modifiedDir);
+
+            File.WriteAllBytes(Path.Combine(originalDir, "game_state"), originalGameStateBytes);
+            File.WriteAllBytes(Path.Combine(modifiedDir, "game_state"), modifiedGameStateBytes);
+
+            var worldDesc = FindSingleWorldDescFile(inputDir);
+            if (worldDesc != null)
+            {
+                File.Copy(worldDesc, Path.Combine(originalDir, "world_desc"), overwrite: true);
+                var safeWorldDesc = Path.Combine(outputDir, "safe_world_pair", "world_desc");
+                File.Copy(File.Exists(safeWorldDesc) ? safeWorldDesc : worldDesc, Path.Combine(modifiedDir, "world_desc"), overwrite: true);
+            }
+
+            var readme = "World write lab output. Test 00_original_copy_pair first. If it fails, the problem is replacement path or file pairing, not the editor. Then test 01_saved_pair. If only 01 fails, compare citizen_trait_deep_diff.json and game loading behavior.\r\n";
+            File.WriteAllText(Path.Combine(labRoot, "README_TEST_ORDER.txt"), readme, Encoding.UTF8);
+
+            var rows = new List<WorldWriteLabReportRow>
+            {
+                new("00_original_copy_pair", "original-copy", "Copy of input game_state/world_desc before editor write. This should load if copied into the correct save folder."),
+                new("01_saved_pair", traitChanged ? "saved-trait-pair" : "saved-numeric-pair", "The editor output pair. If 00 loads and this fails, the editor changed something the game loader rejects.")
+            };
+            WriteCsv(Path.Combine(outputDir, "world_write_lab_report.csv"), rows,
+                ["Directory", "Kind", "Note"], r => [r.Directory, r.Kind, r.Note]);
+            var report = new { Passed = true, Stage = "world-write-lab", LabDirectory = labRoot, RawPreserveNote = rawPreserveNote, Rows = rows };
+            File.WriteAllText(Path.Combine(outputDir, "world_write_lab_report.json"), JsonSerializer.Serialize(report, new JsonSerializerOptions { WriteIndented = true }), Encoding.UTF8);
+            AppLogger.Info("已输出 world_write_lab 对照组目录：" + labRoot);
+        }
+        catch (Exception ex)
+        {
+            AppLogger.Warn("输出 world_write_lab 失败：" + ex.Message);
+        }
+    }
+
+    private static void WriteSafeWorldPairOutput(string inputDir, string outputDir, string gameStateFile, byte[] gameStateBytes, string rawPreserveNote)
+    {
+        try
+        {
+            Directory.CreateDirectory(outputDir);
+            var pairDir = Path.Combine(outputDir, "safe_world_pair");
+            Directory.CreateDirectory(pairDir);
+
+            var pairGameStatePath = Path.Combine(pairDir, "game_state");
+            File.WriteAllBytes(pairGameStatePath, gameStateBytes);
+
+            string gameStateGameId = "";
+            double? gameStateTimePlayed = null;
+            string gameStateNote = "";
+            if (TryDeserializeGameStateWithFormat(gameStateBytes, out var pairedState, out _, out gameStateNote) && pairedState != null)
+            {
+                var inspection = InspectGameState(gameStateFile, pairedState, new Options { Limit = 2000 });
+                gameStateGameId = inspection.GameId;
+                gameStateTimePlayed = inspection.TimePlayed;
+            }
+
+            var worldDescFile = FindSingleWorldDescFile(inputDir);
+            var reportRows = new List<SafeWorldPairReportRow>();
+            if (worldDescFile == null)
+            {
+                reportRows.Add(new SafeWorldPairReportRow("ERROR", "world_desc", "missing", "No world_desc was found in input, so only safe_world_pair/game_state was written."));
+                WriteSafeWorldPairReport(outputDir, pairDir, reportRows, rawPreserveNote);
+                AppLogger.Warn("safe_world_pair 已输出 game_state，但 input 中没有 world_desc，无法输出匹配 world_desc。");
+                return;
+            }
+
+            var worldDescBytes = File.ReadAllBytes(worldDescFile);
+            if (!TryDeserializeWorldDescriptionWithFormat(worldDescBytes, out var worldDesc, out var worldDescWasGzip, out var worldDescNote) || worldDesc == null)
+            {
+                reportRows.Add(new SafeWorldPairReportRow("ERROR", "world_desc", "deserialize", worldDescNote));
+                WriteSafeWorldPairReport(outputDir, pairDir, reportRows, rawPreserveNote);
+                AppLogger.Warn("safe_world_pair 已输出 game_state，但 world_desc 反序列化失败，无法输出匹配 world_desc：" + worldDescNote);
+                return;
+            }
+
+            var originalWorldDescGameId = NormalizeGuidString(ReadMember(worldDesc, "GameId"));
+            var originalWorldDescTimePlayed = ToDoubleOrNull(ReadMember(worldDesc, "TimePlayed"));
+
+            if (Guid.TryParse(gameStateGameId, out var parsedGameId) && parsedGameId != Guid.Empty)
+            {
+                if (TrySetMember(worldDesc, "GameId", parsedGameId))
+                {
+                    reportRows.Add(new SafeWorldPairReportRow("INFO", "GameId", "synced", $"{originalWorldDescGameId} -> {parsedGameId:D}"));
+                }
+                else
+                {
+                    reportRows.Add(new SafeWorldPairReportRow("WARN", "GameId", "not-writable", $"Could not set world_desc.GameId to {parsedGameId:D}."));
+                }
+            }
+            else
+            {
+                reportRows.Add(new SafeWorldPairReportRow("WARN", "GameId", "unknown", "Could not read a non-empty GameId from the generated game_state."));
+            }
+
+            if (gameStateTimePlayed.HasValue)
+            {
+                if (TrySetMember(worldDesc, "TimePlayed", gameStateTimePlayed.Value))
+                {
+                    var oldTime = originalWorldDescTimePlayed.HasValue ? originalWorldDescTimePlayed.Value.ToString(CultureInfo.InvariantCulture) : "";
+                    reportRows.Add(new SafeWorldPairReportRow("INFO", "TimePlayed", "synced", $"{oldTime} -> {gameStateTimePlayed.Value.ToString(CultureInfo.InvariantCulture)}"));
+                }
+                else
+                {
+                    reportRows.Add(new SafeWorldPairReportRow("WARN", "TimePlayed", "not-writable", "Could not set world_desc.TimePlayed."));
+                }
+            }
+
+            if (TrySetMember(worldDesc, "LastPlayed", DateTime.Now))
+            {
+                reportRows.Add(new SafeWorldPairReportRow("INFO", "LastPlayed", "updated", DateTime.Now.ToString("O", CultureInfo.InvariantCulture)));
+            }
+
+            if (TrySetMember(worldDesc, "Broken", false))
+            {
+                reportRows.Add(new SafeWorldPairReportRow("INFO", "Broken", "cleared", "world_desc.Broken=false"));
+            }
+
+            if (TrySetMember(worldDesc, "LoadedFromBackup", false))
+            {
+                reportRows.Add(new SafeWorldPairReportRow("INFO", "LoadedFromBackup", "cleared", "world_desc.LoadedFromBackup=false"));
+            }
+
+            var pairWorldDescPath = Path.Combine(pairDir, "world_desc");
+            var generatedWorldDescBytes = SerializeWorldDescriptionToBytes(worldDesc, worldDescWasGzip);
+            File.WriteAllBytes(pairWorldDescPath, generatedWorldDescBytes);
+
+            foreach (var charFile in Directory.EnumerateFiles(inputDir, "*.char", SearchOption.TopDirectoryOnly))
+            {
+                var dest = Path.Combine(pairDir, Path.GetFileName(charFile));
+                File.Copy(charFile, dest, overwrite: true);
+            }
+
+            File.WriteAllText(Path.Combine(pairDir, "README_USE_PAIR.txt"),
+                "Use this folder as a matched save-file pair. Copy game_state and world_desc together into the same Romestead save directory.\r\n" +
+                "Do not test output/game_state alone when debugging world load errors.\r\n" +
+                "Any .char files in this folder are copied from input for convenience; they were not force-rewritten.\r\n",
+                Encoding.UTF8);
+
+            reportRows.Add(new SafeWorldPairReportRow("INFO", "safe_world_pair", "written", pairDir));
+            WriteSafeWorldPairReport(outputDir, pairDir, reportRows, rawPreserveNote);
+            AppLogger.Info("已输出成对世界文件：" + pairDir + "。测试时请同时复制 game_state 和 world_desc。");
+        }
+        catch (Exception ex)
+        {
+            AppLogger.Warn("输出 safe_world_pair 失败：" + ex.Message);
+            try
+            {
+                var pairDir = Path.Combine(outputDir, "safe_world_pair");
+                WriteSafeWorldPairReport(outputDir, pairDir, [new SafeWorldPairReportRow("ERROR", "safe_world_pair", ex.GetType().Name, ex.Message)], rawPreserveNote);
+            }
+            catch
+            {
+                // Do not hide the original save success/failure if this optional pair output report fails.
+            }
+        }
+    }
+
+    private static byte[] SerializeWorldDescriptionToBytes(object worldDesc, bool gzipOutput)
+    {
+        using var serialized = new MemoryStream();
+        if (gzipOutput)
+        {
+            using (var gzip = new GZipStream(serialized, CompressionLevel.Optimal, leaveOpen: true))
+            {
+                SerializeWithType(gzip, worldDesc.GetType(), worldDesc);
+            }
+        }
+        else
+        {
+            SerializeWithType(serialized, worldDesc.GetType(), worldDesc);
+        }
+        return serialized.ToArray();
+    }
+
+    private static string? FindSingleWorldDescFile(string inputDir)
+    {
+        var files = Directory.EnumerateFiles(inputDir, "*", SearchOption.TopDirectoryOnly)
+            .Where(f =>
+            {
+                var name = Path.GetFileName(f);
+                return name.Equals("world_desc", StringComparison.OrdinalIgnoreCase) ||
+                       name.StartsWith("world_desc.", StringComparison.OrdinalIgnoreCase);
+            })
+            .OrderBy(f => Path.GetFileName(f), StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        if (files.Count == 0) return null;
+        if (files.Count > 1)
+        {
+            AppLogger.Warn("input 中存在多个 world_desc 候选，output/world 使用第一个：" + string.Join(", ", files.Select(Path.GetFileName)));
+        }
+        return files[0];
+    }
+
+    private static void WriteSafeWorldPairReport(string outputDir, string pairDir, List<SafeWorldPairReportRow> rows, string rawPreserveNote)
+    {
+        Directory.CreateDirectory(outputDir);
+        var report = new
+        {
+            Passed = rows.All(r => !string.Equals(r.Level, "ERROR", StringComparison.OrdinalIgnoreCase)),
+            PairDirectory = pairDir,
+            Files = new
+            {
+                GameState = Path.Combine(pairDir, "game_state"),
+                WorldDesc = Path.Combine(pairDir, "world_desc")
+            },
+            RawPreserveNote = rawPreserveNote,
+            Checks = rows
+        };
+        var jsonOptions = new JsonSerializerOptions { WriteIndented = true };
+        File.WriteAllText(Path.Combine(outputDir, "safe_world_pair_report.json"), JsonSerializer.Serialize(report, jsonOptions), Encoding.UTF8);
+        WriteCsv(Path.Combine(outputDir, "safe_world_pair_report.csv"), rows,
+            ["Level", "Check", "Status", "Note"],
+            r => [r.Level, r.Check, r.Status, r.Note]);
+    }
+
+    public static SaveResult ValidateCitizenChanges(string libDir, string inputDir, string outputDir, IReadOnlyList<CitizenUpdate> citizenUpdates, bool unsafeCitizenStringWorldWrite = false, bool debugMode = false, bool outputCsv = false)
+    {
+        ArgumentNullException.ThrowIfNull(citizenUpdates);
+        if (citizenUpdates.Count == 0) return new SaveResult(0, 0, "", "", 0, "没有可预验证的村民变化。");
+
+        var validationRoot = Path.Combine(outputDir, "_world_write_preflight_" + DateTime.Now.ToString("yyyyMMdd_HHmmss_fff", CultureInfo.InvariantCulture));
+        var tempInput = Path.Combine(validationRoot, "input");
+        var tempBackup = Path.Combine(validationRoot, "backup");
+        var tempOutput = Path.Combine(validationRoot, "output");
+        Directory.CreateDirectory(tempInput);
+        Directory.CreateDirectory(tempBackup);
+        Directory.CreateDirectory(tempOutput);
+
+        try
+        {
+            foreach (var file in Directory.GetFiles(inputDir))
+            {
+                var name = Path.GetFileName(file);
+                File.Copy(file, Path.Combine(tempInput, name), overwrite: true);
+            }
+
+            AppLogger.Info("开始预验证世界写入：在临时目录中模拟保存，不覆盖 input。Temp=" + validationRoot);
+            try
+            {
+                var result = SaveCitizenChanges(libDir, tempInput, tempBackup, tempOutput, citizenUpdates, unsafeCitizenStringWorldWrite, debugMode: false, outputCsv: outputCsv);
+                if (outputCsv) CopyWorldWriteReportsToOutputRoot(tempOutput, outputDir, validationRoot, success: true);
+                AppLogger.Info("世界写入预验证通过：" + result.Message);
+                return result;
+            }
+            catch
+            {
+                // Preflight writes diagnostics into the temporary output folder. Copy them back
+                // before the temp directory is removed so users can always find world_write*.json/csv
+                // under the normal output folder.
+                if (outputCsv) CopyWorldWriteReportsToOutputRoot(tempOutput, outputDir, validationRoot, success: false);
+                throw;
+            }
+        }
+        finally
+        {
+            try { Directory.Delete(validationRoot, recursive: true); }
+            catch (Exception ex) { AppLogger.Warn("清理世界写入预验证临时目录失败：" + ex.Message); }
+        }
+    }
+
+    private static List<string> ValidateModifiedGameStateBytes(string gameStateFile, byte[] originalBytes, byte[] modifiedBytes, object stateForEntryNames, GameStateInspectionResult beforeInspection, string outputDir, string rawPreserveNote, bool outputCsv = false)
     {
         var errors = new List<string>();
         Directory.CreateDirectory(outputDir);
@@ -1316,18 +2203,33 @@ internal static class InspectorCore
         try
         {
             var rows = BuildWorldStateEntrySizeCompare(stateForEntryNames, modifiedStateForEntryCompare, originalBytes, modifiedBytes);
-            WriteWorldStateEntrySizeCompareReport(outputDir, rows, "world_write_entry_size_compare");
+            if (outputCsv) WriteWorldStateEntrySizeCompareReport(outputDir, rows, "world_write_entry_size_compare");
 
-            foreach (var entryName in RawPreservedWorldEntryNames)
+            var largeWorldArrayLikeRows = rows
+                .Where(r => (r.OriginalBytes ?? 0) >= 5_000_000)
+                .OrderBy(r => r.Index)
+                .ToList();
+            var preservedLargeWorldArrayLikeRows = largeWorldArrayLikeRows
+                .Where(r => r.Status == "OK" && (r.DiffBytes ?? 0) == 0)
+                .ToList();
+
+            if (preservedLargeWorldArrayLikeRows.Count >= 3)
             {
-                var row = rows.FirstOrDefault(r => string.Equals(r.EntryName, entryName, StringComparison.OrdinalIgnoreCase));
-                if (row == null)
+                AppLogger.Info("大型世界数组块校验：按大块原始字节保留通过。" + string.Join(", ", preservedLargeWorldArrayLikeRows.Take(3).Select(r => $"{r.Index}:{r.EntryName}={r.OriginalBytes:N0}")));
+            }
+            else
+            {
+                foreach (var entryName in RawPreservedWorldEntryNames)
                 {
-                    errors.Add($"大型数组块缺失：{entryName}");
-                    continue;
+                    var row = rows.FirstOrDefault(r => string.Equals(r.EntryName, entryName, StringComparison.OrdinalIgnoreCase));
+                    if (row == null)
+                    {
+                        errors.Add($"大型数组块缺失：{entryName}");
+                        continue;
+                    }
+                    if (row.Status != "OK" || (row.DiffBytes ?? 0) != 0)
+                        errors.Add($"大型数组块未被原样保留：{entryName} original={row.OriginalBytes}, modified={row.RoundtripBytes}, diff={row.DiffBytes}, status={row.Status}");
                 }
-                if (row.Status != "OK" || (row.DiffBytes ?? 0) != 0)
-                    errors.Add($"大型数组块未被原样保留：{entryName} original={row.OriginalBytes}, modified={row.RoundtripBytes}, diff={row.DiffBytes}, status={row.Status}");
             }
         }
         catch (Exception ex)
@@ -1403,6 +2305,21 @@ internal static class InspectorCore
             }
         }
 
+        if (fileName.Equals("world_desc", StringComparison.OrdinalIgnoreCase) || fileName.StartsWith("world_desc.", StringComparison.OrdinalIgnoreCase))
+        {
+            if (TryDeserializeWorldDescriptionWithFormat(bytes, out var worldDesc, out var worldDescWasGzip, out var worldDescNote) && worldDesc != null)
+            {
+                var info = InspectWorldDescription(file, worldDesc, worldDescWasGzip, worldDescNote);
+                result.WorldDescriptions.Add(info);
+                scanInfo = scanInfo with { Note = AppendNote(scanInfo.Note, worldDescNote) };
+            }
+            else
+            {
+                scanInfo = scanInfo with { Note = AppendNote(scanInfo.Note, worldDescNote) };
+                AppLogger.Error("world_desc recognition failed: " + worldDescNote);
+            }
+        }
+
         // Player character saves are separate from game_state. Try every input file so users can drop a whole save folder in input/.
         if (TryDeserializePlayerSave(bytes, out var playerSave, out var playerNote) && playerSave != null)
         {
@@ -1417,6 +2334,17 @@ internal static class InspectorCore
         }
 
         result.FilesScanned.Add(scanInfo);
+
+        if (!scanInfo.DetectedGameState &&
+            (fileName.Equals(GameStateFileName, StringComparison.OrdinalIgnoreCase) || fileName.StartsWith("game_state", StringComparison.OrdinalIgnoreCase)))
+        {
+            AppLogger.Error("game_state recognition failed: " + scanInfo.Note);
+        }
+
+        if (!scanInfo.DetectedPlayerSave && fileName.EndsWith(".char", StringComparison.OrdinalIgnoreCase))
+        {
+            AppLogger.Error("player .char recognition failed: " + scanInfo.Note);
+        }
     }
 
     private static bool PlayerMatches(PlayerSaveInfo info, string text)
@@ -1554,6 +2482,11 @@ internal static class InspectorCore
             }
         }
 
+        AddCitizenEntityDiagnostics(result, stateEntries);
+
+        result.GameId = NormalizeGuidString(stateEntries.FirstOrDefault(e => string.Equals(e.Name, "GameId", StringComparison.OrdinalIgnoreCase)).Value);
+        result.TimePlayed = ToDoubleOrNull(stateEntries.FirstOrDefault(e => string.Equals(e.Name, "TimePlayed", StringComparison.OrdinalIgnoreCase)).Value);
+        result.ConfigDescription = DescribeValue(stateEntries.FirstOrDefault(e => string.Equals(e.Name, "Config", StringComparison.OrdinalIgnoreCase)).Value);
         result.WorldItemCount = TryGetCount(worldItemsValue);
         result.TotalStateEntries = result.StateEntries.Count;
         result.TotalItemInstances = TryGetCount(itemInstancesValue) ?? result.ItemInstances.Count;
@@ -1880,6 +2813,284 @@ internal static class InspectorCore
         return (info, jobs);
     }
 
+
+    private static void AddCitizenEntityDiagnostics(GameStateInspectionResult result, List<(string Name, object? Value)> stateEntries)
+    {
+        try
+        {
+            if (result.Citizens.Count == 0) return;
+
+            var entitiesValue = stateEntries.FirstOrDefault(e => string.Equals(e.Name, "Entities", StringComparison.OrdinalIgnoreCase)).Value;
+            var controllerStatesValue = stateEntries.FirstOrDefault(e => string.Equals(e.Name, "CitizenControllerStates", StringComparison.OrdinalIgnoreCase)).Value;
+            var citizenSlotsValue = stateEntries.FirstOrDefault(e => string.Equals(e.Name, "CitizenSlots", StringComparison.OrdinalIgnoreCase)).Value;
+
+            var entityIds = result.Citizens
+                .Select(c => c.EntityId)
+                .Where(IsLikelyGuidText)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+            var citizenIds = result.Citizens
+                .Select(c => c.CitizenId)
+                .Where(IsLikelyGuidText)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+            var citizenSlotIds = result.Citizens
+                .Select(c => c.CitizenSlotId)
+                .Where(IsLikelyGuidText)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+            var entityLookup = BuildTargetObjectLookup(entitiesValue, entityIds, maxScan: 700000, idMemberCandidates: ["Id", "EntityId", "Guid", "EntityGuid"]);
+            var controllerLookup = BuildTargetObjectLookup(controllerStatesValue, citizenIds.Concat(entityIds).ToHashSet(StringComparer.OrdinalIgnoreCase), maxScan: 10000, idMemberCandidates: ["CitizenId", "EntityId", "Id"]);
+            var slotLookup = BuildTargetObjectLookup(citizenSlotsValue, citizenSlotIds, maxScan: 10000, idMemberCandidates: ["Id", "CitizenSlotId", "SlotId"]);
+
+            foreach (var citizen in result.Citizens.OrderBy(c => c.Name, StringComparer.OrdinalIgnoreCase).ThenBy(c => c.CitizenId, StringComparer.OrdinalIgnoreCase))
+            {
+                var notes = new List<string>();
+                var terms = BuildCitizenDiagnosticTerms(citizen);
+
+                var entityFound = TryLookupTarget(entityLookup, citizen.EntityId, out var entityKey, out var entityObj);
+                if (!entityFound)
+                {
+                    notes.Add("EntityId not found in Entities. This is a strong loading-risk if the game expects Citizen.EntityId to resolve to ServerEntityModel.");
+                }
+
+                var controllerFound = TryLookupTarget(controllerLookup, citizen.CitizenId, out var controllerKey, out var controllerObj)
+                                      || TryLookupTarget(controllerLookup, citizen.EntityId, out controllerKey, out controllerObj);
+
+                var slotFound = TryLookupTarget(slotLookup, citizen.CitizenSlotId, out var slotKey, out var slotObj);
+
+                var entityHits = entityFound
+                    ? CollectObjectTextHits(entityObj, terms, "Entities[" + entityKey + "]", maxDepth: 5, maxNodes: 600, maxHits: 60).ToList()
+                    : new List<CitizenAuraRuntimeHitInfo>();
+                var controllerHits = controllerFound
+                    ? CollectObjectTextHits(controllerObj, terms, "CitizenControllerStates[" + controllerKey + "]", maxDepth: 5, maxNodes: 400, maxHits: 50).ToList()
+                    : new List<CitizenAuraRuntimeHitInfo>();
+                var slotHits = slotFound
+                    ? CollectObjectTextHits(slotObj, terms, "CitizenSlots[" + slotKey + "]", maxDepth: 4, maxNodes: 200, maxHits: 30).ToList()
+                    : new List<CitizenAuraRuntimeHitInfo>();
+
+                foreach (var hit in entityHits)
+                    result.CitizenAuraRuntime.Add(hit with { SourceFile = result.SourceFileName, CitizenId = citizen.CitizenId, Name = citizen.Name, EntityId = citizen.EntityId, SourceKind = "Entity", SourceKey = entityKey });
+                foreach (var hit in controllerHits)
+                    result.CitizenAuraRuntime.Add(hit with { SourceFile = result.SourceFileName, CitizenId = citizen.CitizenId, Name = citizen.Name, EntityId = citizen.EntityId, SourceKind = "CitizenControllerState", SourceKey = controllerKey });
+                foreach (var hit in slotHits)
+                    result.CitizenAuraRuntime.Add(hit with { SourceFile = result.SourceFileName, CitizenId = citizen.CitizenId, Name = citizen.Name, EntityId = citizen.EntityId, SourceKind = "CitizenSlot", SourceKey = slotKey });
+
+                if ((SplitSemicolonIds(citizen.AuraIds).Any() || SplitSemicolonIds(citizen.TraitIds).Any()) && entityFound && entityHits.Count == 0 && controllerHits.Count == 0)
+                {
+                    notes.Add("Citizen has aura/trait IDs, but no matching aura/trait/buff text was found in its Entity or CitizenControllerState snapshot. This may mean aura runtime state is not mirrored there, or the editor must update another runtime structure.");
+                }
+
+                result.CitizenEntityBindings.Add(new CitizenEntityBindingInfo(
+                    result.SourceFileName,
+                    citizen.CitizenId,
+                    citizen.Name,
+                    citizen.EntityId,
+                    citizen.TraitIds,
+                    citizen.AuraIds,
+                    entityFound,
+                    entityKey,
+                    GetFriendlyTypeName(entityObj),
+                    entityFound ? SafeMemberSummary(entityObj) : "",
+                    entityHits.Count.ToString(CultureInfo.InvariantCulture),
+                    controllerFound.ToString(),
+                    controllerKey,
+                    GetFriendlyTypeName(controllerObj),
+                    controllerFound ? SafeMemberSummary(controllerObj) : "",
+                    controllerHits.Count.ToString(CultureInfo.InvariantCulture),
+                    slotFound.ToString(),
+                    slotKey,
+                    GetFriendlyTypeName(slotObj),
+                    string.Join(" | ", notes)));
+            }
+        }
+        catch (Exception ex)
+        {
+            AppLogger.Error("Citizen/Entity diagnostic failed: " + ex);
+        }
+    }
+
+    private static HashSet<string> BuildCitizenDiagnosticTerms(CitizenInfo citizen)
+    {
+        var terms = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var value in new[] { citizen.CitizenId, citizen.EntityId, citizen.CitizenSlotId, citizen.CurrentWorldId, citizen.SpawnWorldId })
+        {
+            if (!string.IsNullOrWhiteSpace(value)) terms.Add(value);
+        }
+        foreach (var id in SplitSemicolonIds(citizen.AuraIds)) terms.Add(id);
+        foreach (var id in SplitSemicolonIds(citizen.TraitIds)) terms.Add(id);
+        foreach (var token in new[] { "Aura", "Auras", "Trait", "Traits", "Buff", "Debuff", "Stat", "Stats", "Citizen", "Loyalty", "Efficiency", "Expertise", "Happiness" })
+            terms.Add(token);
+        return terms;
+    }
+
+    private static List<string> SplitSemicolonIds(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return new List<string>();
+        return text.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
+    private static Dictionary<string, (string Key, object? Value)> BuildTargetObjectLookup(object? source, HashSet<string> targets, int maxScan, string[] idMemberCandidates)
+    {
+        var result = new Dictionary<string, (string Key, object? Value)>(StringComparer.OrdinalIgnoreCase);
+        if (source == null || targets.Count == 0) return result;
+
+        var scanned = 0;
+        foreach (var (key, value) in EnumerateDictionary(source))
+        {
+            if (++scanned > maxScan) break;
+            var keyText = key?.ToString() ?? "";
+            if (targets.Contains(keyText))
+            {
+                result[keyText] = (keyText, value);
+                if (result.Count >= targets.Count) break;
+                continue;
+            }
+
+            foreach (var member in idMemberCandidates)
+            {
+                var id = ReadMember(value, member)?.ToString() ?? "";
+                if (targets.Contains(id))
+                {
+                    result[id] = (keyText, value);
+                    break;
+                }
+            }
+
+            if (result.Count >= targets.Count) break;
+        }
+
+        return result;
+    }
+
+    private static bool TryLookupTarget(Dictionary<string, (string Key, object? Value)> lookup, string id, out string key, out object? value)
+    {
+        key = "";
+        value = null;
+        if (string.IsNullOrWhiteSpace(id)) return false;
+        if (!lookup.TryGetValue(id, out var found)) return false;
+        key = found.Key;
+        value = found.Value;
+        return true;
+    }
+
+    private static bool IsLikelyGuidText(string? value)
+    {
+        return !string.IsNullOrWhiteSpace(value) && Guid.TryParse(value, out _);
+    }
+
+    private static IEnumerable<CitizenAuraRuntimeHitInfo> CollectObjectTextHits(object? root, HashSet<string> terms, string rootPath, int maxDepth, int maxNodes, int maxHits)
+    {
+        if (root == null || terms.Count == 0) yield break;
+
+        var queue = new Queue<(object Obj, string Path, int Depth)>();
+        var visited = new HashSet<int>();
+        queue.Enqueue((root, rootPath, 0));
+        var emitted = 0;
+        var scanned = 0;
+
+        while (queue.Count > 0 && scanned < maxNodes && emitted < maxHits)
+        {
+            var (obj, path, depth) = queue.Dequeue();
+            if (obj == null) continue;
+            var type = obj.GetType();
+            if (IsSimpleDiagnosticValue(obj)) continue;
+
+            var hash = RuntimeHelpers.GetHashCode(obj);
+            if (!visited.Add(hash)) continue;
+            scanned++;
+
+            foreach (var (memberName, memberType, value) in EnumerateDiagnosticMembers(obj))
+            {
+                if (emitted >= maxHits) yield break;
+                var memberPath = path + "." + memberName;
+                var valueText = ValueToDiagnosticText(value);
+                var reason = GetDiagnosticHitReason(memberName, valueText, terms);
+                if (!string.IsNullOrEmpty(reason))
+                {
+                    emitted++;
+                    yield return new CitizenAuraRuntimeHitInfo("", "", "", "", "", "", memberPath, memberName, memberType, TrimForReport(valueText, 500), reason);
+                }
+
+                if (depth < maxDepth && value != null && value is not string && !IsSimpleDiagnosticValue(value))
+                {
+                    if (value is IEnumerable enumerable)
+                    {
+                        var i = 0;
+                        foreach (var child in enumerable)
+                        {
+                            if (child == null) continue;
+                            if (i >= 40) break;
+                            if (!IsSimpleDiagnosticValue(child)) queue.Enqueue((child, memberPath + "[" + i.ToString(CultureInfo.InvariantCulture) + "]", depth + 1));
+                            i++;
+                        }
+                    }
+                    else
+                    {
+                        queue.Enqueue((value, memberPath, depth + 1));
+                    }
+                }
+            }
+        }
+    }
+
+    private static IEnumerable<(string Name, string TypeName, object? Value)> EnumerateDiagnosticMembers(object obj)
+    {
+        var type = obj.GetType();
+        foreach (var field in type.GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic))
+        {
+            object? value = null;
+            try { value = field.GetValue(obj); } catch { }
+            yield return (field.Name, GetFriendlyTypeName(value ?? field.FieldType), value);
+        }
+
+        foreach (var prop in type.GetProperties(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic))
+        {
+            if (prop.GetIndexParameters().Length != 0) continue;
+            object? value = null;
+            try { value = prop.GetValue(obj); } catch { }
+            yield return (prop.Name, GetFriendlyTypeName(value ?? prop.PropertyType), value);
+        }
+    }
+
+    private static bool IsSimpleDiagnosticValue(object value)
+    {
+        var type = value.GetType();
+        return value is string || type.IsPrimitive || type.IsEnum || type == typeof(decimal) || type == typeof(Guid) || type == typeof(DateTime);
+    }
+
+    private static string ValueToDiagnosticText(object? value)
+    {
+        if (value == null) return "";
+        if (value is string s) return s;
+        if (IsSimpleDiagnosticValue(value)) return value.ToString() ?? "";
+        var count = TryGetCount(value);
+        if (count.HasValue) return "Count=" + count.Value.ToString(CultureInfo.InvariantCulture) + " " + GetFriendlyTypeName(value);
+        return SafeMemberSummary(value);
+    }
+
+    private static string GetDiagnosticHitReason(string memberName, string valueText, HashSet<string> terms)
+    {
+        var reasons = new List<string>();
+        foreach (var term in terms)
+        {
+            if (string.IsNullOrWhiteSpace(term)) continue;
+            if (memberName.Contains(term, StringComparison.OrdinalIgnoreCase)) reasons.Add("member:" + term);
+            else if (!string.IsNullOrWhiteSpace(valueText) && valueText.Contains(term, StringComparison.OrdinalIgnoreCase)) reasons.Add("value:" + term);
+            if (reasons.Count >= 6) break;
+        }
+        return string.Join(";", reasons.Distinct(StringComparer.OrdinalIgnoreCase));
+    }
+
+    private static string TrimForReport(string text, int max)
+    {
+        if (string.IsNullOrEmpty(text) || text.Length <= max) return text;
+        return text[..max] + "...";
+    }
+
     private static Dictionary<string, object?> ReadCitizenJobMap(object citizen)
     {
         var result = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
@@ -2050,6 +3261,29 @@ internal static class InspectorCore
         if (!string.IsNullOrWhiteSpace(id)) return id!;
         var text = value.ToString() ?? "";
         return text.Contains('.') && text.Contains("StringId") ? "" : text;
+    }
+
+    private static WorldDescriptionInfo InspectWorldDescription(string sourceFile, object desc, bool wasGzip, string note)
+    {
+        return new WorldDescriptionInfo
+        {
+            SourceFile = sourceFile,
+            SourceFileName = Path.GetFileName(sourceFile),
+            WasGzip = wasGzip,
+            Note = note,
+            Name = ToDisplayString(ReadMember(desc, "Name")),
+            Created = ToDisplayString(ReadMember(desc, "Created")),
+            LastPlayed = ToDisplayString(ReadMember(desc, "LastPlayed")),
+            Tier = ToDisplayString(ReadMember(desc, "Tier")),
+            Size = ToDisplayString(ReadMember(desc, "Size")),
+            TimePlayed = ToDoubleOrNull(ReadMember(desc, "TimePlayed")),
+            FolderPath = ToDisplayString(ReadMember(desc, "FolderPath")),
+            GameId = NormalizeGuidString(ReadMember(desc, "GameId")),
+            Modded = ToBoolOrNull(ReadMember(desc, "Modded")),
+            Broken = ToBoolOrNull(ReadMember(desc, "Broken")),
+            LoadedFromBackup = ToBoolOrNull(ReadMember(desc, "LoadedFromBackup")),
+            TypeName = desc.GetType().FullName ?? desc.GetType().Name
+        };
     }
 
     private static PlayerSaveInfo InspectPlayerSave(string sourceFile, object save)
@@ -2626,12 +3860,21 @@ internal static class InspectorCore
 
     private static bool ApplyCitizenTraits(object citizen, string traitIdsText)
     {
-        var desired = SplitIdsForSave(traitIdsText)
-            .Select(NormalizeCitizenAuraIdForSave)
-            .Where(v => !string.IsNullOrWhiteSpace(v))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .OrderBy(v => v, StringComparer.OrdinalIgnoreCase)
-            .ToList();
+        EnsureCitizenAuraDatabase();
+
+        var desired = new List<string>();
+        foreach (var raw in SplitIdsForSave(traitIdsText))
+        {
+            var id = NormalizeCitizenAuraIdForSave(raw);
+            if (string.IsNullOrWhiteSpace(id)) continue;
+            if (!IsKnownCitizenTraitAuraId(id))
+            {
+                AppLogger.Error($"跳过非 Trait 或未知村民特质：{id}。为避免坏档，特质编辑只写入 CitizenAuraInfo.Type=Trait 的 aura。");
+                continue;
+            }
+            if (!desired.Contains(id, StringComparer.OrdinalIgnoreCase)) desired.Add(id);
+        }
+        desired = desired.OrderBy(v => v, StringComparer.OrdinalIgnoreCase).ToList();
 
         var current = ReadCurrentCitizenTraitIds(citizen)
             .Select(NormalizeCitizenAuraIdForSave)
@@ -2653,21 +3896,26 @@ internal static class InspectorCore
         var auras = ReadMember(citizen, "Auras");
         if (auras is IList auraList)
         {
+            // 只移除真正的 Trait。不要再按 DataId 中的 :buff:/:debuff: 粗暴删除，
+            // 因为 town_defence / cornucopia / loyalty / gift 等非 Trait 也可能是 buff/default aura。
             for (var i = auraList.Count - 1; i >= 0; i--)
             {
                 var aura = auraList[i];
-                var type = ReadMember(aura, "Type")?.ToString() ?? "";
-                var dataId = ReadMember(aura, "DataId")?.ToString() ?? "";
-                if (type.Equals("Trait", StringComparison.OrdinalIgnoreCase) || NormalizeCitizenAuraIdForSave(dataId).Contains(":buff:") || NormalizeCitizenAuraIdForSave(dataId).Contains(":debuff:"))
+                if (IsCitizenTraitAuraObject(aura))
                     auraList.RemoveAt(i);
             }
+
             foreach (var id in desired)
             {
+                if (TryAddCitizenAuraWithGameController(citizen, id)) continue;
+
                 var aura = CreateCitizenAuraModel(id);
                 if (aura != null) auraList.Add(aura);
                 else AppLogger.Error($"无法创建村民特质：{id}。该 ID 会被跳过。");
             }
-            RecalculateCitizenStatsFromAuras(citizen);
+
+            if (!RecalculateCitizenStatsWithGameController(citizen))
+                RecalculateCitizenStatsFromAuras(citizen);
             return true;
         }
 
@@ -2690,6 +3938,133 @@ internal static class InspectorCore
             var type = ReadMember(aura, "Type")?.ToString() ?? "";
             var id = ReadMember(aura, "DataId")?.ToString() ?? "";
             if (!string.IsNullOrWhiteSpace(id) && type.Equals("Trait", StringComparison.OrdinalIgnoreCase)) yield return id;
+        }
+    }
+
+    private static bool IsCitizenTraitAuraObject(object? aura)
+    {
+        if (aura == null) return false;
+        var type = ReadMember(aura, "Type")?.ToString() ?? "";
+        if (type.Equals("Trait", StringComparison.OrdinalIgnoreCase)) return true;
+        var dataId = NormalizeCitizenAuraIdForSave(ReadMember(aura, "DataId")?.ToString());
+        return IsKnownCitizenTraitAuraId(dataId);
+    }
+
+    private static bool IsKnownCitizenTraitAuraId(string? rawAuraId)
+    {
+        var auraId = NormalizeCitizenAuraIdForSave(rawAuraId);
+        if (string.IsNullOrWhiteSpace(auraId)) return false;
+
+        var auraInfo = GetCitizenAuraInfo(auraId);
+        var type = auraInfo == null ? "" : (ReadMember(auraInfo, "Type")?.ToString() ?? "");
+        if (type.Equals("Trait", StringComparison.OrdinalIgnoreCase)) return true;
+
+        // Fallback for environments where the game's CitizenAuraDatabase could not be initialized.
+        return auraId is
+            "citizen_aura:debuff:food" or
+            "citizen_aura:debuff:expertise" or
+            "citizen_aura:debuff:efficiency" or
+            "citizen_aura:debuff:experience" or
+            "citizen_aura:debuff:loyalty" or
+            "citizen_aura:debuff:happiness" or
+            "citizen_aura:debuff:anxiety" or
+            "citizen_aura:buff:expertise" or
+            "citizen_aura:buff:efficiency" or
+            "citizen_aura:buff:experience" or
+            "citizen_aura:buff:loyalty" or
+            "citizen_aura:buff:happiness";
+    }
+
+    private static bool TryAddCitizenAuraWithGameController(object citizen, string auraId)
+    {
+        try
+        {
+            EnsureCitizenAuraDatabase();
+            var controllerType = FindType("CandideServer.ServerControllers.CitizensSController")
+                                 ?? FindTypeByName("CitizensSController");
+            if (controllerType == null)
+            {
+                AppLogger.Warn($"未找到游戏 CitizensSController，无法走原生 AddCitizenAura：{auraId}。将回退到本地构造。");
+                return false;
+            }
+
+            var methods = controllerType.GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static)
+                .Where(m => m.Name == "AddCitizenAura")
+                .ToList();
+            var method = methods.FirstOrDefault(m =>
+            {
+                var ps = m.GetParameters();
+                return ps.Length == 5
+                    && ps[0].ParameterType == typeof(Guid)
+                    && ps[1].ParameterType == typeof(string)
+                    && ps[3].ParameterType == typeof(bool)
+                    && ps[4].ParameterType == typeof(bool)
+                    && ps[2].ParameterType.IsAssignableFrom(citizen.GetType());
+            }) ?? methods.FirstOrDefault(m =>
+            {
+                var ps = m.GetParameters();
+                return ps.Length == 5
+                    && ps[0].ParameterType == typeof(Guid)
+                    && ps[1].ParameterType == typeof(string)
+                    && ps[3].ParameterType == typeof(bool)
+                    && ps[4].ParameterType == typeof(bool);
+            });
+
+            if (method == null)
+            {
+                AppLogger.Warn($"找到 {controllerType.FullName}，但没有匹配的 AddCitizenAura(Guid,string,citizen,bool,bool)。候选数量={methods.Count}。将回退到本地构造。");
+                foreach (var m in methods.Take(8))
+                    AppLogger.Warn("AddCitizenAura candidate: " + m);
+                return false;
+            }
+
+            var before = ReadCurrentCitizenTraitIds(citizen).Select(NormalizeCitizenAuraIdForSave).ToList();
+            method.Invoke(null, new object?[] { Guid.NewGuid(), auraId, citizen, false, false });
+            var after = ReadCurrentCitizenTraitIds(citizen).Select(NormalizeCitizenAuraIdForSave).ToList();
+            var ok = after.Contains(auraId, StringComparer.OrdinalIgnoreCase) || after.Count > before.Count;
+            AppLogger.Info($"游戏原生 AddCitizenAura 调用{(ok ? "成功" : "未产生可见变化")}：{auraId} | {controllerType.FullName}.{method.Name} | before={string.Join(";", before)} | after={string.Join(";", after)}");
+            return ok;
+        }
+        catch (TargetInvocationException ex)
+        {
+            var inner = ex.InnerException;
+            AppLogger.Error($"通过游戏 CitizensSController.AddCitizenAura 添加特质失败，回退到本地构造：{auraId} | {inner?.GetType().Name ?? ex.GetType().Name}: {inner?.Message ?? ex.Message}");
+            return false;
+        }
+        catch (Exception ex)
+        {
+            AppLogger.Error($"通过游戏 CitizensSController.AddCitizenAura 添加特质失败，回退到本地构造：{auraId} | {ex.GetType().Name}: {ex.Message}");
+            return false;
+        }
+    }
+
+    private static bool RecalculateCitizenStatsWithGameController(object citizen)
+    {
+        try
+        {
+            var controllerType = FindType("CandideServer.ServerControllers.CitizensSController")
+                                 ?? FindTypeByName("CitizensSController");
+            var method = controllerType?.GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static)
+                .FirstOrDefault(m => m.Name == "UpdateStats" && m.GetParameters().Length == 2);
+            if (method == null)
+            {
+                AppLogger.Warn("未找到游戏 CitizensSController.UpdateStats(citizen, ...)，将回退到本地重算村民属性。");
+                return false;
+            }
+            method.Invoke(null, new object?[] { citizen, null });
+            AppLogger.Info($"游戏原生 UpdateStats 调用成功：{controllerType!.FullName}.{method.Name}");
+            return true;
+        }
+        catch (TargetInvocationException ex)
+        {
+            var inner = ex.InnerException;
+            AppLogger.Error($"通过游戏 CitizensSController.UpdateStats 重算村民属性失败，回退到本地重算：{inner?.GetType().Name ?? ex.GetType().Name}: {inner?.Message ?? ex.Message}");
+            return false;
+        }
+        catch (Exception ex)
+        {
+            AppLogger.Error($"通过游戏 CitizensSController.UpdateStats 重算村民属性失败，回退到本地重算：{ex.GetType().Name}: {ex.Message}");
+            return false;
         }
     }
 
@@ -2719,6 +4094,35 @@ internal static class InspectorCore
         }
     }
 
+    private static bool EnsureCitizenAuraDatabase()
+    {
+        try
+        {
+            var dbType = FindType("Shared.Data.CitizenAuraDatabase");
+            if (dbType == null) return false;
+            var dataMap = GetStaticField(dbType, "DataMap");
+            if ((TryGetCount(dataMap) ?? 0) > 0) return true;
+
+            // The citizen aura setup lives in Shared.Data.Auras.SharedDataSetup, not Shared.Data.SharedDataSetup.
+            // Earlier versions tried the wrong setup type, so newly-created CitizenAuraModel objects could miss
+            // the game's canonical StatsToAdd / Type / InstanceTypeId payload.
+            var auraSetupType = FindType("Shared.Data.Auras.SharedDataSetup");
+            var setupMethod = auraSetupType?.GetMethod("SetupCitizenAuras", BindingFlags.Public | BindingFlags.Static);
+            var addDataMethod = dbType.GetMethod("AddData", BindingFlags.Public | BindingFlags.Static);
+            if (setupMethod == null || addDataMethod == null) return false;
+
+            var auraList = setupMethod.Invoke(null, null);
+            if (auraList == null) return false;
+            addDataMethod.Invoke(null, new[] { auraList });
+            return (TryGetCount(GetStaticField(dbType, "DataMap")) ?? 0) > 0;
+        }
+        catch (Exception ex)
+        {
+            AppLogger.Error($"初始化游戏 CitizenAuraDatabase 失败：{ex.GetType().Name}: {ex.Message}");
+            return false;
+        }
+    }
+
     private static void EnsureSharedDataSetup()
     {
         if (SharedDataSetupAttempted) return;
@@ -2738,11 +4142,9 @@ internal static class InspectorCore
     {
         try
         {
+            EnsureCitizenAuraDatabase();
             var dbType = FindType("Shared.Data.CitizenAuraDatabase");
             if (dbType == null) return null;
-            var dataMap = GetStaticField(dbType, "DataMap");
-            var count = TryGetCount(dataMap) ?? 0;
-            if (count == 0) EnsureSharedDataSetup();
             var method = dbType.GetMethod("GetAuraOrNull", BindingFlags.Public | BindingFlags.Static);
             return method?.Invoke(null, new object?[] { auraId });
         }
@@ -2931,6 +4333,35 @@ internal static class InspectorCore
         return fullFile.StartsWith(fullDir, StringComparison.OrdinalIgnoreCase);
     }
 
+    private static void WriteWorldWriteNativeFailureReport(string outputDir, string gameStateFile, Exception ex)
+    {
+        try
+        {
+            Directory.CreateDirectory(outputDir);
+            var report = new
+            {
+                Passed = false,
+                Stage = "native-server-state-serialization",
+                GameState = Path.GetFileName(gameStateFile),
+                ErrorType = ex.GetType().FullName,
+                Message = ex.Message,
+                InnerErrorType = ex.InnerException?.GetType().FullName,
+                InnerMessage = ex.InnerException?.Message,
+                Note = "Native writer failed before final world_write_validation_report/world_write_entry_size_compare could be generated."
+            };
+            var json = JsonSerializer.Serialize(report, new JsonSerializerOptions { WriteIndented = true });
+            File.WriteAllText(Path.Combine(outputDir, "world_write_native_failure_report.json"), json, Encoding.UTF8);
+            File.WriteAllText(Path.Combine(outputDir, "world_write_native_failure_report.csv"),
+                "Passed,Stage,GameState,ErrorType,Message" + Environment.NewLine +
+                $"false,native-server-state-serialization,{CsvEscape(Path.GetFileName(gameStateFile))},{CsvEscape(ex.GetType().FullName ?? string.Empty)},{CsvEscape(ex.Message)}" + Environment.NewLine,
+                Encoding.UTF8);
+        }
+        catch
+        {
+            // Do not hide the original save failure if diagnostics cannot be written.
+        }
+    }
+
     private static string? ResolveInputFile(string inputDir, string sourceFile)
     {
         if (Path.IsPathRooted(sourceFile) && File.Exists(sourceFile)) return sourceFile;
@@ -2955,6 +4386,616 @@ internal static class InspectorCore
                        || fileNameNoExt.Equals(wanted, StringComparison.OrdinalIgnoreCase)
                        || fileNameNoExt.Equals(wantedFileNameNoExt, StringComparison.OrdinalIgnoreCase);
             });
+    }
+
+
+    private static byte[] SerializeGameStateToBytesUsingNativeServerState(object state, byte[] originalFileBytes, bool gzipOutput, out string note)
+    {
+        // v63: Do NOT call GameSaveManager.SaveGameState(false). That method touches BaseServer.Instance
+        // and initializes the live server/event bus, which in turn requires Steamworks.NET. For save editing we
+        // only need the game serializer context used by the custom WorldTiles/Difficulties serializers.
+        //
+        // A crucial detail from v62 diagnostics: some loaded saves can expose the three large array entries
+        // with stale/shifted names, e.g. BiomeIds carrying a System.Single[,] value. When the serializer writes
+        // those names back as-is, WorldTiles/BiomeIds/Difficulties are silently written as tiny placeholder
+        // blocks or assigned to the wrong entry. Canonicalize the state-list entry names by runtime value type
+        // before priming ServerGameState statics and before serializing. This keeps the writer independent from
+        // BaseServer while still using the game's own ITypeSerializer implementations.
+        var normalizedState = NormalizeGameStateEntriesForNativeLoad(state, out var normalizationNote);
+        if (!string.IsNullOrWhiteSpace(normalizationNote))
+        {
+            AppLogger.Info("Native direct full-state writer entry normalization: " + normalizationNote);
+        }
+
+        PrimeNativeSerializerContextForDirectStateSerialization(normalizedState, out var contextNote);
+        var arraySummary = DescribeStateWorldArrayEntries(normalizedState);
+        AppLogger.Info("Native direct full-state writer: " + contextNote + "; " + arraySummary);
+
+        var bytes = SerializeGameStateToBytesSeededWithOriginalStringMap(normalizedState, originalFileBytes, gzipOutput, out var seededNote);
+        note = normalizationNote + "; " + contextNote + "; " + arraySummary + "; serialized normalized edited state list with original string-map IDs seeded; " + seededNote + "; BaseServer.SaveGameState bypassed";
+        return bytes;
+    }
+
+
+    private static byte[] SerializeGameStateToBytesSeededWithOriginalStringMap(object normalizedState, byte[] originalFileBytes, bool gzipOutput, out string note)
+    {
+        note = "";
+        var originalPayload = GetPossiblyGzippedPayloadBytes(originalFileBytes);
+        if (!TryExtractTopLevelStateEntrySpansFromPayload(originalPayload, out var originalSpans, out var originalSpanNote) || originalSpans.Count == 0)
+        {
+            throw new InvalidOperationException("无法解析原始 game_state entry spans，不能 seed 原始 string map。" + originalSpanNote);
+        }
+
+        var originalHeaderLength = originalSpans[0].Offset;
+        if (!TryReadStringMapHeader(originalPayload, originalHeaderLength, out var originalHeader, out var originalHeaderNote) || !originalHeader.HasDirectStringMap)
+        {
+            throw new InvalidOperationException("无法解析原始 game_state string map，不能 seed 原始 string map。" + originalHeaderNote);
+        }
+
+        var payload = SerializePayloadWithSeededStringMap(GetGameStateListType(), normalizedState, originalHeader.Strings, out var seededNote);
+        note = seededNote;
+        return WrapPayloadWithCompression(payload, gzipOutput);
+    }
+
+    private static byte[] SerializePayloadWithSeededStringMap(Type rootType, object? source, IReadOnlyList<string> seedStrings, out string note)
+    {
+        note = "";
+        var gameSaveManagerType = FindType("CandideServer.Saving.GameSaveManager")
+            ?? throw new InvalidOperationException("Could not find CandideServer.Saving.GameSaveManager. Is CandideServer.dll in lib/?");
+
+        var reflection = GetStaticField(gameSaveManagerType, "GameStateSaveReflection")
+            ?? throw new InvalidOperationException("GameSaveManager.GameStateSaveReflection is null.");
+        var serializer = GetStaticField(gameSaveManagerType, "GameStateSaveSerializer")
+            ?? throw new InvalidOperationException("GameSaveManager.GameStateSaveSerializer is null.");
+
+        var stringMap = GetSerializerStringMap(serializer);
+        var visited = GetSerializerVisitedCollection(serializer);
+        var syncRoot = visited ?? (object)serializer;
+
+        lock (syncRoot)
+        {
+            ClearCollectionLike(visited);
+            stringMap.Clear();
+            for (var i = 0; i < seedStrings.Count; i++)
+            {
+                // Keep the original compact string-map ID space exactly stable.
+                // v68 skipped empty strings while seeding the serializer dictionary. Some saves contain
+                // an empty string in the direct string map; skipping it creates a one-slot ID gap, so all
+                // later raw-preserved StateEntry wrappers can point at the wrong string when the map is
+                // written back compacted. Empty strings are valid dictionary keys and must be preserved.
+                var value = seedStrings[i] ?? string.Empty;
+                if (!stringMap.Contains(value))
+                    stringMap.Add(value, i + 1);
+            }
+
+            if (!TrySetSerializerNextStringId(serializer, seedStrings.Count + 1, out var nextIdNote))
+            {
+                AppLogger.Warn("GameStateSaveSerializer next string id was not explicitly set: " + nextIdNote);
+            }
+
+            if (source == null)
+            {
+                using var emptyOutput = new MemoryStream();
+                using var emptyWriter = new BinaryWriter(emptyOutput, Encoding.UTF8, leaveOpen: true);
+                emptyWriter.Write(6448483u);
+                emptyWriter.Write((byte)0);
+                emptyWriter.Flush();
+                note = "seeded original string map not used because source was null";
+                return emptyOutput.ToArray();
+            }
+
+            using var body = new MemoryStream();
+            var extendedBinaryWriterType = FindType("CandideCreator.Shared.Storage.ExtendedBinaryWriter")
+                ?? throw new InvalidOperationException("ExtendedBinaryWriter type not found.");
+            var bodyWriter = Activator.CreateInstance(extendedBinaryWriterType, new object?[] { body })
+                ?? throw new InvalidOperationException("Failed to construct ExtendedBinaryWriter.");
+
+            var getTypeHandlerMethod = reflection.GetType().GetMethods(BindingFlags.Instance | BindingFlags.Public)
+                .FirstOrDefault(m => m.Name == "GetTypeHandler" && m.GetParameters().Length == 1 && m.GetParameters()[0].ParameterType == typeof(Type))
+                ?? throw new MissingMethodException(reflection.GetType().FullName, "GetTypeHandler(Type)");
+            var typeHandler = getTypeHandlerMethod.Invoke(reflection, new object?[] { rootType })
+                ?? throw new InvalidOperationException("GetTypeHandler returned null for " + rootType.FullName);
+
+            var writeTypeCodeMethod = serializer.GetType().GetMethod("WriteTypeCode", BindingFlags.Instance | BindingFlags.Public)
+                ?? throw new MissingMethodException(serializer.GetType().FullName, "WriteTypeCode");
+            writeTypeCodeMethod.Invoke(serializer, new object?[] { reflection, bodyWriter, typeHandler, rootType });
+
+            var serializeMethod = typeHandler.GetType().GetMethod("Serialize", BindingFlags.Instance | BindingFlags.Public)
+                ?? throw new MissingMethodException(typeHandler.GetType().FullName, "Serialize");
+            serializeMethod.Invoke(typeHandler, new object?[] { reflection, serializer, bodyWriter, source });
+            // Do not dispose ExtendedBinaryWriter here: in the game build it owns and closes the
+            // underlying MemoryStream. v67 disposed it before reading the body, which caused
+            // ObjectDisposedException: Cannot access a closed Stream. Flush if possible, then
+            // read the MemoryStream while it is still open.
+            FlushWriterIfPossible(bodyWriter);
+
+            using var output = new MemoryStream();
+            using var writer = new BinaryWriter(output, Encoding.UTF8, leaveOpen: true);
+            if (stringMap.Count > 0)
+            {
+                writer.Write(23225699u);
+                var entries = new List<(int Id, string Value)>();
+                foreach (DictionaryEntry entry in stringMap)
+                {
+                    if (entry.Key is string key && entry.Value is int id && id > 0)
+                        entries.Add((id, key));
+                }
+
+                entries.Sort((a, b) => a.Id.CompareTo(b.Id));
+
+                // Write the original direct string map by ID position, not by the currently-present
+                // dictionary entry count. The serializer dictionary is string->id and cannot represent
+                // duplicate/gap semantics perfectly; the save header, however, is a positional direct
+                // string array. Starting from the original header preserves every old compact string ID.
+                // New strings discovered during serialization are appended by their assigned IDs.
+                var finalStrings = seedStrings.Select(x => x ?? string.Empty).ToList();
+                foreach (var entry in entries)
+                {
+                    if (entry.Id <= 0) continue;
+                    while (finalStrings.Count < entry.Id)
+                        finalStrings.Add(string.Empty);
+                    if (entry.Id > seedStrings.Count)
+                        finalStrings[entry.Id - 1] = entry.Value ?? string.Empty;
+                }
+
+                // The game writes the compact-string map as an array of direct strings:
+                // [count][element type 33][strings ordered by compact id].
+                Write7BitEncodedInt(output, finalStrings.Count);
+                writer.Write((byte)33);
+                foreach (var value in finalStrings)
+                    writer.Write(value ?? string.Empty);
+
+                var maxId = finalStrings.Count;
+                var appended = Math.Max(0, finalStrings.Count - seedStrings.Count);
+                note = $"seeded original string map IDs. originalStrings={seedStrings.Count:N0}, finalStrings={finalStrings.Count:N0}, maxId={maxId:N0}, appendedOrNewStrings={appended:N0}";
+            }
+            else
+            {
+                writer.Write(6448483u);
+                note = "no compact string map was produced";
+            }
+
+            writer.Flush();
+            body.Position = 0;
+            body.CopyTo(output);
+            return output.ToArray();
+        }
+    }
+
+
+    private static IDictionary GetSerializerStringMap(object serializer)
+    {
+        var serializerType = serializer.GetType();
+        foreach (var field in EnumerateInstanceFields(serializerType))
+        {
+            object? value;
+            try { value = field.GetValue(serializer); }
+            catch { continue; }
+            if (value is not IDictionary dict) continue;
+
+            if (string.Equals(field.Name, "StringMap", StringComparison.OrdinalIgnoreCase))
+                return dict;
+
+            if (LooksLikeStringToIntDictionary(dict))
+                return dict;
+        }
+
+        throw new InvalidOperationException("GameStateSaveSerializer string map dictionary is not accessible. Fields=" + DescribeInstanceFields(serializerType));
+    }
+
+    private static ICollection? GetSerializerVisitedCollection(object serializer)
+    {
+        var serializerType = serializer.GetType();
+        foreach (var field in EnumerateInstanceFields(serializerType))
+        {
+            object? value;
+            try { value = field.GetValue(serializer); }
+            catch { continue; }
+            if (value is not ICollection collection || value is IDictionary) continue;
+
+            if (string.Equals(field.Name, "Visited", StringComparison.OrdinalIgnoreCase))
+                return collection;
+        }
+
+        foreach (var field in EnumerateInstanceFields(serializerType))
+        {
+            object? value;
+            try { value = field.GetValue(serializer); }
+            catch { continue; }
+            if (value is not ICollection collection || value is IDictionary) continue;
+            var t = value.GetType();
+            if (t.IsGenericType && t.GetGenericTypeDefinition() == typeof(HashSet<>))
+                return collection;
+        }
+
+        return null;
+    }
+
+
+    private static void FlushWriterIfPossible(object writer)
+    {
+        try
+        {
+            var flush = writer.GetType().GetMethods(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
+                .FirstOrDefault(m => string.Equals(m.Name, "Flush", StringComparison.Ordinal) && m.GetParameters().Length == 0);
+            flush?.Invoke(writer, null);
+        }
+        catch
+        {
+            // Some game writer implementations do not expose Flush. The backing MemoryStream is
+            // still valid as long as we avoid disposing the wrapper before copying the bytes.
+        }
+    }
+
+    private static IEnumerable<FieldInfo> EnumerateInstanceFields(Type type)
+    {
+        const BindingFlags flags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
+        for (var t = type; t != null; t = t.BaseType)
+        {
+            foreach (var field in t.GetFields(flags))
+                yield return field;
+        }
+    }
+
+    private static bool LooksLikeStringToIntDictionary(IDictionary dict)
+    {
+        if (dict.Count == 0) return true;
+        var inspected = 0;
+        foreach (DictionaryEntry entry in dict)
+        {
+            inspected++;
+            if (entry.Key is not string) return false;
+            if (entry.Value is not int) return false;
+            if (inspected >= 8) break;
+        }
+        return true;
+    }
+
+    private static void ClearCollectionLike(ICollection? collection)
+    {
+        if (collection == null) return;
+        var clear = collection.GetType()
+            .GetMethods(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
+            .FirstOrDefault(m => string.Equals(m.Name, "Clear", StringComparison.Ordinal) && m.GetParameters().Length == 0);
+        clear?.Invoke(collection, null);
+    }
+
+    private static bool TrySetSerializerNextStringId(object serializer, int nextId, out string note)
+    {
+        var serializerType = serializer.GetType();
+        var fields = EnumerateInstanceFields(serializerType)
+            .Where(f => f.FieldType == typeof(int))
+            .ToList();
+
+        var preferred = fields.FirstOrDefault(f => string.Equals(f.Name, "_nextId", StringComparison.OrdinalIgnoreCase))
+            ?? fields.FirstOrDefault(f => f.Name.Contains("next", StringComparison.OrdinalIgnoreCase) && f.Name.Contains("id", StringComparison.OrdinalIgnoreCase))
+            ?? fields.FirstOrDefault(f => f.Name.Contains("next", StringComparison.OrdinalIgnoreCase));
+
+        if (preferred == null && fields.Count == 1)
+            preferred = fields[0];
+
+        if (preferred == null)
+        {
+            note = "no suitable int field found. IntFields=" + string.Join(",", fields.Select(f => f.Name));
+            return false;
+        }
+
+        try
+        {
+            preferred.SetValue(serializer, nextId);
+            note = $"set {preferred.Name}={nextId:N0}";
+            return true;
+        }
+        catch (Exception ex)
+        {
+            note = $"failed to set {preferred.Name}: {ex.GetType().Name}: {ex.Message}";
+            return false;
+        }
+    }
+
+    private static string DescribeInstanceFields(Type type)
+    {
+        try
+        {
+            return string.Join("; ", EnumerateInstanceFields(type).Select(f => $"{f.Name}:{f.FieldType.FullName}"));
+        }
+        catch
+        {
+            return type.FullName ?? type.Name;
+        }
+    }
+
+    private static void PrimeNativeSerializerContextForDirectStateSerialization(object state, out string note)
+    {
+        var notes = new List<string>();
+        var serverGameStateType = FindType("CandideServer.ServerGameState");
+        if (serverGameStateType == null)
+        {
+            note = "ServerGameState not found; serializer context not primed";
+            return;
+        }
+
+        object? config = null;
+        object? worldTiles = null;
+        object? biomeIds = null;
+        object? difficulties = null;
+
+        foreach (var entry in EnumerateGameStateEntries(state))
+        {
+            if (string.Equals(entry.Name, "Config", StringComparison.Ordinal))
+            {
+                config = entry.Value;
+                continue;
+            }
+
+            if (entry.Value is not Array array || array.Rank != 2) continue;
+            var elementType = array.GetType().GetElementType();
+            if (elementType == typeof(string)) biomeIds = entry.Value;
+            else if (elementType == typeof(float) || elementType == typeof(Single)) difficulties = entry.Value;
+            else if (elementType != null && string.Equals(elementType.Name, "WorldTile", StringComparison.Ordinal)) worldTiles = entry.Value;
+        }
+
+        if (config != null && TrySetStaticField(serverGameStateType, "Config", config))
+        {
+            notes.Add("Config.GenerateWorld=" + (ReadMember(config, "GenerateWorld")?.ToString() ?? "<unknown>"));
+        }
+        else
+        {
+            notes.Add("Config not set");
+        }
+
+        if (worldTiles != null && TrySetStaticField(serverGameStateType, "WorldTiles", worldTiles)) notes.Add("WorldTiles=" + DescribeArrayShape((Array)worldTiles));
+        if (biomeIds != null && TrySetStaticField(serverGameStateType, "BiomeIds", biomeIds)) notes.Add("BiomeIds=" + DescribeArrayShape((Array)biomeIds));
+        if (difficulties != null && TrySetStaticField(serverGameStateType, "Difficulties", difficulties)) notes.Add("Difficulties=" + DescribeArrayShape((Array)difficulties));
+
+        note = "primed serializer context: " + string.Join(", ", notes);
+    }
+
+    private static string DescribeStateWorldArrayEntries(object state)
+    {
+        var parts = new List<string>();
+        foreach (var entry in EnumerateGameStateEntries(state))
+        {
+            if (entry.Value is not Array array || array.Rank != 2) continue;
+            var elementType = array.GetType().GetElementType();
+            if (elementType == typeof(string) || elementType == typeof(float) || elementType == typeof(Single) || (elementType != null && string.Equals(elementType.Name, "WorldTile", StringComparison.Ordinal)))
+            {
+                parts.Add($"{entry.Name}={DescribeValueType(entry.Value)}");
+            }
+        }
+        return parts.Count == 0 ? "state world arrays: none" : "state world arrays: " + string.Join("; ", parts);
+    }
+
+    private static object NormalizeGameStateEntriesForNativeLoad(object state, out string note)
+    {
+        note = "";
+        if (state is not IEnumerable enumerable) return state;
+
+        var stateType = state.GetType();
+        if (!stateType.IsGenericType) return state;
+
+        var entryType = stateType.GetGenericArguments().FirstOrDefault();
+        if (entryType == null) return state;
+
+        var normalizedList = Activator.CreateInstance(stateType);
+        var addMethod = stateType.GetMethod("Add", [entryType]);
+        if (normalizedList == null || addMethod == null) return state;
+
+        var corrections = new List<string>();
+        foreach (var entry in enumerable)
+        {
+            if (entry == null) continue;
+            var t = entry.GetType();
+            var oldName = t.GetField("Item1")?.GetValue(entry)?.ToString()
+                          ?? t.GetProperty("Name")?.GetValue(entry)?.ToString()
+                          ?? "<unknown>";
+            var value = t.GetField("Item2")?.GetValue(entry)
+                        ?? t.GetProperty("Value")?.GetValue(entry);
+            var newName = GetCanonicalGameStateEntryName(oldName, value);
+            if (!string.Equals(oldName, newName, StringComparison.Ordinal))
+            {
+                corrections.Add($"{oldName}->{newName} ({DescribeValueType(value)})");
+            }
+
+            var normalizedEntry = Activator.CreateInstance(entryType, newName, value);
+            addMethod.Invoke(normalizedList, [normalizedEntry]);
+        }
+
+        if (corrections.Count > 0)
+        {
+            note = "corrected known array entry names for native LoadGameState: " + string.Join(", ", corrections);
+        }
+        else
+        {
+            note = "known array entry names already canonical";
+        }
+        return normalizedList;
+    }
+
+    private static string GetCanonicalGameStateEntryName(string currentName, object? value)
+    {
+        if (value is Array array && array.Rank == 2)
+        {
+            var elementType = array.GetType().GetElementType();
+            if (elementType == typeof(string)) return "BiomeIds";
+            if (elementType == typeof(float) || elementType == typeof(Single)) return "Difficulties";
+            if (elementType != null && string.Equals(elementType.Name, "WorldTile", StringComparison.Ordinal)) return "WorldTiles";
+        }
+        return currentName;
+    }
+
+    private static string DescribeValueType(object? value)
+    {
+        if (value == null) return "null";
+        if (value is Array array) return value.GetType().FullName + " shape=" + DescribeArrayShape(array);
+        return value.GetType().FullName ?? value.GetType().Name;
+    }
+
+    private static void LoadGameStateIntoNativeServerStatics(object state, out string note)
+    {
+        note = "";
+        var gameSaveManagerType = FindType("CandideServer.Saving.GameSaveManager")
+            ?? throw new InvalidOperationException("Could not find CandideServer.Saving.GameSaveManager.");
+
+        var loadGameState = gameSaveManagerType.GetMethod("LoadGameState", BindingFlags.Static | BindingFlags.NonPublic)
+            ?? throw new MissingMethodException(gameSaveManagerType.FullName, "LoadGameState(List<(string, object)>)");
+
+        try
+        {
+            loadGameState.Invoke(null, new object?[] { state });
+        }
+        catch (TargetInvocationException tie) when (tie.InnerException != null)
+        {
+            throw new InvalidOperationException(tie.InnerException.Message, tie.InnerException);
+        }
+
+        var serverGameStateType = FindType("CandideServer.ServerGameState");
+        var config = serverGameStateType?.GetField("Config", BindingFlags.Static | BindingFlags.Public)?.GetValue(null);
+        var generateWorld = ReadMember(config, "GenerateWorld");
+        var worldTiles = serverGameStateType?.GetField("WorldTiles", BindingFlags.Static | BindingFlags.Public)?.GetValue(null) as Array;
+        var biomeIds = serverGameStateType?.GetField("BiomeIds", BindingFlags.Static | BindingFlags.Public)?.GetValue(null) as Array;
+        var difficulties = serverGameStateType?.GetField("Difficulties", BindingFlags.Static | BindingFlags.Public)?.GetValue(null) as Array;
+        note = $"LoadGameState invoked; GenerateWorld={generateWorld}; WorldTiles={DescribeArrayShape(worldTiles)}; BiomeIds={DescribeArrayShape(biomeIds)}; Difficulties={DescribeArrayShape(difficulties)}";
+        AppLogger.Info("Native server state loaded for save: " + note);
+    }
+
+
+    private static void ForcePopulateKnownWorldArrayStaticsFromState(object state, out string note)
+    {
+        note = "";
+        var serverGameStateType = FindType("CandideServer.ServerGameState");
+        if (serverGameStateType == null)
+        {
+            note = "ServerGameState not found; skipped static world array repair";
+            return;
+        }
+
+        object? worldTiles = null;
+        object? biomeIds = null;
+        object? difficulties = null;
+
+        foreach (var entry in EnumerateGameStateEntries(state))
+        {
+            var value = entry.Value;
+            if (value is not Array array || array.Rank != 2) continue;
+            var elementType = array.GetType().GetElementType();
+            if (elementType == typeof(string)) biomeIds = value;
+            else if (elementType == typeof(float) || elementType == typeof(Single)) difficulties = value;
+            else if (elementType != null && string.Equals(elementType.Name, "WorldTile", StringComparison.Ordinal)) worldTiles = value;
+        }
+
+        var changes = new List<string>();
+        if (worldTiles != null && TrySetStaticField(serverGameStateType, "WorldTiles", worldTiles)) changes.Add("WorldTiles=" + DescribeArrayShape((Array)worldTiles));
+        if (biomeIds != null && TrySetStaticField(serverGameStateType, "BiomeIds", biomeIds)) changes.Add("BiomeIds=" + DescribeArrayShape((Array)biomeIds));
+        if (difficulties != null && TrySetStaticField(serverGameStateType, "Difficulties", difficulties)) changes.Add("Difficulties=" + DescribeArrayShape((Array)difficulties));
+
+        note = changes.Count == 0
+            ? "no world array statics repaired from state entries"
+            : "repaired ServerGameState world array statics from state entries: " + string.Join(", ", changes);
+        AppLogger.Info("Native server state static repair: " + note);
+    }
+
+    private static bool TrySetStaticField(Type type, string fieldName, object value)
+    {
+        try
+        {
+            var field = type.GetField(fieldName, BindingFlags.Static | BindingFlags.Public);
+            if (field == null) return false;
+            if (!field.FieldType.IsInstanceOfType(value)) return false;
+            field.SetValue(null, value);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            AppLogger.Warn($"Failed to set ServerGameState.{fieldName}: {ex.Message}");
+            return false;
+        }
+    }
+
+    private static object BuildNativeGameStateFromServerStatics(out string note)
+    {
+        var gameSaveManagerType = FindType("CandideServer.Saving.GameSaveManager")
+            ?? throw new InvalidOperationException("Could not find CandideServer.Saving.GameSaveManager.");
+
+        var saveGameState = gameSaveManagerType.GetMethod("SaveGameState", BindingFlags.Static | BindingFlags.Public)
+            ?? throw new MissingMethodException(gameSaveManagerType.FullName, "SaveGameState(bool)");
+
+        try
+        {
+            var nativeState = saveGameState.Invoke(null, new object?[] { false })
+                ?? throw new InvalidOperationException("GameSaveManager.SaveGameState(false) returned null.");
+            var count = nativeState is IEnumerable e ? e.Cast<object>().Count() : -1;
+            note = $"native SaveGameState(false) returned {count} state entries";
+            AppLogger.Info("Native game state built for save: " + note);
+            return nativeState;
+        }
+        catch (TargetInvocationException tie) when (tie.InnerException != null)
+        {
+            throw new InvalidOperationException(tie.InnerException.Message, tie.InnerException);
+        }
+    }
+
+    private static IEnumerable<(string Name, object? Value)> EnumerateGameStateEntries(object state)
+    {
+        if (state is not IEnumerable enumerable) yield break;
+        foreach (var entry in enumerable)
+        {
+            if (entry == null) continue;
+            var t = entry.GetType();
+            var name = t.GetField("Item1")?.GetValue(entry)?.ToString()
+                       ?? t.GetProperty("Name")?.GetValue(entry)?.ToString()
+                       ?? "";
+            var value = t.GetField("Item2")?.GetValue(entry)
+                        ?? t.GetProperty("Value")?.GetValue(entry);
+            yield return (name, value);
+        }
+    }
+
+    private static void CopyWorldWriteReportsToOutputRoot(string tempOutputDir, string outputDir, string validationRoot, bool success)
+    {
+        try
+        {
+            Directory.CreateDirectory(outputDir);
+            if (!Directory.Exists(tempOutputDir)) return;
+
+            var copied = new List<string>();
+            foreach (var file in Directory.EnumerateFiles(tempOutputDir, "world_write*.*", SearchOption.TopDirectoryOnly)
+                         .Concat(Directory.EnumerateFiles(tempOutputDir, "world_desc_binding_report.*", SearchOption.TopDirectoryOnly))
+                         .Concat(Directory.EnumerateFiles(tempOutputDir, "citizen_entity_binding_report.*", SearchOption.TopDirectoryOnly))
+                         .Concat(Directory.EnumerateFiles(tempOutputDir, "citizen_aura_runtime_report.*", SearchOption.TopDirectoryOnly))
+                         .Concat(Directory.EnumerateFiles(tempOutputDir, "citizen_trait_deep_diff.*", SearchOption.TopDirectoryOnly)))
+            {
+                var dest = Path.Combine(outputDir, Path.GetFileName(file));
+                File.Copy(file, dest, overwrite: true);
+                copied.Add(Path.GetFileName(file));
+            }
+
+            var marker = new
+            {
+                Passed = success,
+                Stage = "preflight-report-copy",
+                TempValidationRoot = validationRoot,
+                TempOutput = tempOutputDir,
+                CopiedReports = copied,
+                Note = copied.Count == 0
+                    ? "No world_write reports were produced before the failure. Check logs/latest.log for the earlier exception."
+                    : "Reports were copied from the preflight temp output before cleanup."
+            };
+            File.WriteAllText(Path.Combine(outputDir, "world_write_preflight_report_copy.json"), JsonSerializer.Serialize(marker, new JsonSerializerOptions { WriteIndented = true }), Encoding.UTF8);
+            AppLogger.Info($"世界写入预验证报告已复制到 output：{copied.Count} 个文件。" + (copied.Count == 0 ? " 保存流程在生成报告前失败。" : ""));
+        }
+        catch (Exception ex)
+        {
+            AppLogger.Warn("复制世界写入预验证报告失败：" + ex.Message);
+        }
+    }
+
+    private static string DescribeArrayShape(Array? array)
+    {
+        if (array == null) return "null";
+        var parts = new List<string>();
+        for (var i = 0; i < array.Rank; i++) parts.Add(array.GetLength(i).ToString(CultureInfo.InvariantCulture));
+        return string.Join("x", parts);
     }
 
     private static void SerializeWithType(Stream stream, Type type, object? source)
@@ -3010,6 +5051,31 @@ internal static class InspectorCore
         catch (Exception ex)
         {
             note = "game_state no: " + ex.GetType().Name + " | " + ex.Message;
+            return false;
+        }
+    }
+
+    private static bool TryDeserializeWorldDescriptionWithFormat(byte[] bytes, out object? worldDescription, out bool wasGzip, out string note)
+    {
+        worldDescription = null;
+        wasGzip = false;
+        note = "";
+        try
+        {
+            var worldDescriptionType = FindType("CandideServer.GameDescription")
+                ?? throw new InvalidOperationException("Could not find CandideServer.GameDescription.");
+            using var stream = OpenBytesPossiblyGzipped(bytes, out wasGzip);
+            using var memory = new MemoryStream();
+            stream.CopyTo(memory);
+            var decodedLength = memory.Length;
+            memory.Position = 0;
+            worldDescription = DeserializeWithType(memory, worldDescriptionType);
+            note = wasGzip ? $"world_desc gzip bytes={decodedLength}" : $"world_desc raw bytes={decodedLength}";
+            return worldDescription != null;
+        }
+        catch (Exception ex)
+        {
+            note = "world_desc no: " + ex.GetType().Name + " | " + ex.Message;
             return false;
         }
     }
@@ -3133,12 +5199,32 @@ internal static class InspectorCore
         }
 
         var required = new[] { "CandideCreator.Shared", "Shared", "MonoGame.Framework", "CandideServer" };
-        var byName = dlls.ToDictionary(d => Path.GetFileNameWithoutExtension(d) ?? string.Empty, StringComparer.OrdinalIgnoreCase);
+        var blockedDllNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "steam_api", "steam_api64", "Steamworks.NET",
+            "winmm", "version", "OnlineFix", "OnlineFix64", "SteamFix", "SteamFix64",
+        };
+
+        var byName = dlls
+            .GroupBy(d => Path.GetFileNameWithoutExtension(d) ?? string.Empty, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
 
         DllBySimpleName.Clear();
-        foreach (var name in required)
+        var blockedCount = 0;
+        foreach (var kv in byName)
         {
-            if (byName.TryGetValue(name, out var dllPath)) DllBySimpleName[name] = dllPath;
+            var simple = kv.Key;
+            if (blockedDllNames.Contains(simple) || simple.Contains("steamfix", StringComparison.OrdinalIgnoreCase) || simple.Contains("onlinefix", StringComparison.OrdinalIgnoreCase))
+            {
+                blockedCount++;
+                continue;
+            }
+
+            // Register every safe DLL for on-demand dependency resolution, but only eagerly load
+            // the four game serializer assemblies. This keeps SteamFix/OnlineFix blocked while
+            // allowing single-exe dist builds to resolve harmless runtime dependencies such as
+            // Google.Protobuf, LiteNetLib, SharpDX, YarnSpinner, etc.
+            DllBySimpleName[simple] = kv.Value;
         }
 
         var missing = required.Where(name => !DllBySimpleName.ContainsKey(name)).ToList();
@@ -3153,9 +5239,19 @@ internal static class InspectorCore
             if (name == null) return null;
             if (LoadedAssemblies.TryGetValue(name, out var loaded)) return loaded;
             if (!DllBySimpleName.TryGetValue(name, out var dllPath)) return null;
-            var asm = AssemblyLoadContext.Default.LoadFromAssemblyPath(Path.GetFullPath(dllPath));
-            LoadedAssemblies[name] = asm;
-            return asm;
+
+            try
+            {
+                var asm = AssemblyLoadContext.Default.LoadFromAssemblyPath(Path.GetFullPath(dllPath));
+                LoadedAssemblies[name] = asm;
+                AppLogger.Info("Resolved dependency DLL on demand: " + Path.GetFileName(dllPath));
+                return asm;
+            }
+            catch (Exception ex)
+            {
+                AppLogger.Error("Failed to resolve dependency DLL: " + dllPath, ex);
+                return null;
+            }
         };
 
         foreach (var preferred in required)
@@ -3164,7 +5260,8 @@ internal static class InspectorCore
         }
 
         AppLogger.Info("Registered game DLL whitelist: " + string.Join(", ", required.Select(x => x + ".dll")));
-        AppLogger.Info("Skipped non-whitelisted DLLs in dependency directory: " + Math.Max(0, dlls.Length - required.Length).ToString(CultureInfo.InvariantCulture));
+        AppLogger.Info("Registered safe on-demand dependency DLLs: " + DllBySimpleName.Count.ToString(CultureInfo.InvariantCulture));
+        AppLogger.Info("Blocked risky DLLs in dependency directory: " + blockedCount.ToString(CultureInfo.InvariantCulture));
     }
 
     private static Assembly LoadAssembly(string path)
@@ -3313,6 +5410,22 @@ internal static class InspectorCore
         return AppDomain.CurrentDomain.GetAssemblies().Select(a => a.GetType(fullName, throwOnError: false)).FirstOrDefault(t => t != null);
     }
 
+    private static Type? FindTypeByName(string typeName)
+    {
+        foreach (var asm in LoadedAssemblies.Values.Distinct().Concat(AppDomain.CurrentDomain.GetAssemblies()).Distinct())
+        {
+            Type[] types;
+            try { types = asm.GetTypes(); }
+            catch (ReflectionTypeLoadException ex) { types = ex.Types.Where(t => t != null).Cast<Type>().ToArray(); }
+            catch { continue; }
+            var exact = types.FirstOrDefault(t => string.Equals(t.Name, typeName, StringComparison.Ordinal));
+            if (exact != null) return exact;
+            var suffix = types.FirstOrDefault(t => (t.FullName ?? "").EndsWith("." + typeName, StringComparison.Ordinal));
+            if (suffix != null) return suffix;
+        }
+        return null;
+    }
+
     private static object? GetStaticField(Type type, string fieldName)
     {
         return type.GetField(fieldName, BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static)?.GetValue(null);
@@ -3389,6 +5502,7 @@ internal static class InspectorCore
         AppLogger.Info("");
         AppLogger.Info($"Files scanned      : {result.TotalFilesScanned}");
         AppLogger.Info($"GameState files    : {result.TotalGameStates}");
+        AppLogger.Info($"World desc files   : {result.TotalWorldDescriptions}");
         AppLogger.Info($"Player save files  : {result.TotalPlayerSaves}");
 
         foreach (var gs in result.GameStates)
@@ -3425,6 +5539,12 @@ internal static class InspectorCore
             ["Path", "FileName", "SizeBytes", "DetectedGameState", "DetectedPlayerSave", "Note"],
             f => [f.Path, f.FileName, f.SizeBytes.ToString(CultureInfo.InvariantCulture), f.DetectedGameState.ToString(), f.DetectedPlayerSave.ToString(), f.Note]);
 
+        WriteCsv(Path.Combine(outputDir, "world_desc.csv"), result.WorldDescriptions,
+            ["SourceFile", "Name", "GameId", "Created", "LastPlayed", "Tier", "Size", "TimePlayed", "Modded", "Broken", "LoadedFromBackup", "WasGzip", "TypeName", "Note"],
+            d => [d.SourceFile, d.Name, d.GameId, d.Created, d.LastPlayed, d.Tier, d.Size, d.TimePlayed?.ToString(CultureInfo.InvariantCulture) ?? "", d.Modded?.ToString() ?? "", d.Broken?.ToString() ?? "", d.LoadedFromBackup?.ToString() ?? "", d.WasGzip.ToString(), d.TypeName, d.Note]);
+
+        WriteWorldDescBindingReport(outputDir, BuildWorldDescBindingReport(result));
+
         var gameStates = result.GameStates;
         WriteCsv(Path.Combine(outputDir, "state_entries.csv"), gameStates.SelectMany(g => g.StateEntries),
             ["SourceFile", "Name", "TypeName", "Count", "Description"],
@@ -3458,6 +5578,13 @@ internal static class InspectorCore
             ["SourceFile", "EntryName", "EntryType", "EntryCount", "CandidateKey", "CandidateType", "LooksLikeCitizen", "HasName", "HasId", "HasJobExperience", "HasCitizenStats", "Members", "Note"],
             d => [d.SourceFile, d.EntryName, d.EntryType, d.EntryCount, d.CandidateKey, d.CandidateType, d.LooksLikeCitizen, d.HasName, d.HasId, d.HasJobExperience, d.HasCitizenStats, d.Members, d.Note]);
 
+        var citizenEntityReport = BuildCitizenEntityBindingReport(result);
+        WriteCitizenEntityBindingReport(outputDir, citizenEntityReport);
+
+        WriteCsv(Path.Combine(outputDir, "citizen_aura_runtime_report.csv"), gameStates.SelectMany(g => g.CitizenAuraRuntime),
+            ["SourceFile", "CitizenId", "Name", "EntityId", "SourceKind", "SourceKey", "Path", "MemberName", "MemberType", "Value", "Reason"],
+            h => [h.SourceFile, h.CitizenId, h.Name, h.EntityId, h.SourceKind, h.SourceKey, h.Path, h.MemberName, h.MemberType, h.Value, h.Reason]);
+
         var players = FilterPlayers(result.PlayerSaves, options.PlayerFilter).ToList();
         WriteCsv(Path.Combine(outputDir, "player_saves.csv"), players,
             ["SourceFile", "SaveFileName", "PlayerName", "PlayerId", "EntityId", "WorldId", "Money", "TimePlayed", "FilledInventorySlots", "FilledEquipmentSlots", "FilledSecondaryEquipmentSlots"],
@@ -3489,6 +5616,300 @@ internal static class InspectorCore
     private static IEnumerable<ItemInstanceInfo> FilterWorldItems(IEnumerable<ItemInstanceInfo> items, string? filter)
     {
         return filter == null ? items : items.Where(i => i.BaseDataId.Contains(filter, StringComparison.OrdinalIgnoreCase));
+    }
+
+
+    private static CitizenEntityBindingReport BuildCitizenEntityBindingReport(FullInspectionResult result)
+    {
+        var bindings = result.GameStates.SelectMany(g => g.CitizenEntityBindings).ToList();
+        var report = new CitizenEntityBindingReport
+        {
+            Passed = true,
+            GameStateCount = result.GameStates.Count,
+            CitizenCount = result.GameStates.Sum(g => g.Citizens.Count),
+            EntityBindingCount = bindings.Count,
+            MissingEntityCount = bindings.Count(b => !b.EntityFound),
+            CitizensWithNoRuntimeAuraHits = bindings.Count(b => (SplitSemicolonIds(b.AuraIds).Any() || SplitSemicolonIds(b.TraitIds).Any()) && b.EntityFound && b.EntityAuraHitCount == "0" && b.ControllerAuraHitCount == "0"),
+            Bindings = bindings
+        };
+
+        foreach (var b in bindings.Where(b => !b.EntityFound))
+        {
+            report.Errors.Add($"Citizen {b.CitizenId} ({b.Name}) references EntityId {b.EntityId}, but that EntityId was not found in the Entities StateEntry.");
+        }
+
+        foreach (var b in bindings.Where(b => (SplitSemicolonIds(b.AuraIds).Any() || SplitSemicolonIds(b.TraitIds).Any()) && b.EntityFound && b.EntityAuraHitCount == "0" && b.ControllerAuraHitCount == "0").Take(25))
+        {
+            report.Warnings.Add($"Citizen {b.CitizenId} ({b.Name}) has aura/trait IDs but no matching aura/trait/buff text was found in its Entity or CitizenControllerState diagnostic scan.");
+        }
+
+        report.Passed = report.Errors.Count == 0;
+        return report;
+    }
+
+    private static void WriteCitizenEntityBindingReport(string outputDir, CitizenEntityBindingReport report)
+    {
+        var jsonOptions = new JsonSerializerOptions { WriteIndented = true };
+        File.WriteAllText(Path.Combine(outputDir, "citizen_entity_binding_report.json"), JsonSerializer.Serialize(report, jsonOptions), Encoding.UTF8);
+        WriteCsv(Path.Combine(outputDir, "citizen_entity_binding_report.csv"), report.Bindings,
+            ["SourceFile", "CitizenId", "Name", "EntityId", "TraitIds", "AuraIds", "EntityFound", "EntityKey", "EntityType", "EntitySummary", "EntityAuraHitCount", "ControllerFound", "ControllerKey", "ControllerType", "ControllerSummary", "ControllerAuraHitCount", "CitizenSlotFound", "CitizenSlotKey", "CitizenSlotType", "Notes"],
+            b => [b.SourceFile, b.CitizenId, b.Name, b.EntityId, b.TraitIds, b.AuraIds, b.EntityFound.ToString(), b.EntityKey, b.EntityType, b.EntitySummary, b.EntityAuraHitCount, b.ControllerFound, b.ControllerKey, b.ControllerType, b.ControllerSummary, b.ControllerAuraHitCount, b.CitizenSlotFound, b.CitizenSlotKey, b.CitizenSlotType, b.Notes]);
+    }
+
+    private static WorldDescBindingReport BuildWorldDescBindingReport(FullInspectionResult result, string stage = "inspection")
+    {
+        var report = new WorldDescBindingReport
+        {
+            Stage = stage,
+            GameStateCount = result.GameStates.Count,
+            WorldDescCount = result.WorldDescriptions.Count,
+            PlayerSaveCount = result.PlayerSaves.Count,
+            Note = "world_desc is the game's GameDescription file. The game writes it next to game_state and loads it before game_state. v71 compares GameId and summary metadata so game_state-only edits do not silently drift from world_desc."
+        };
+
+        if (result.WorldDescriptions.Count == 0)
+            AddBindingIssue(report, isError: false, "world_desc.missing", "", "", "WARN", "No world_desc was parsed. The game normally expects world_desc beside game_state.");
+        if (result.GameStates.Count == 0)
+            AddBindingIssue(report, isError: true, "game_state.missing", "", "", "ERROR", "No game_state was parsed.");
+
+        foreach (var desc in result.WorldDescriptions)
+        {
+            if (desc.Broken == true)
+                AddBindingIssue(report, isError: true, "world_desc.Broken", desc.SourceFileName, "Broken=true", "ERROR", "world_desc is marked broken.");
+            if (desc.LoadedFromBackup == true)
+                AddBindingIssue(report, isError: false, "world_desc.LoadedFromBackup", desc.SourceFileName, "LoadedFromBackup=true", "WARN", "world_desc was loaded from backup in the game model.");
+        }
+
+        foreach (var gs in result.GameStates)
+        {
+            foreach (var desc in result.WorldDescriptions.DefaultIfEmpty())
+            {
+                if (desc == null) continue;
+                var left = $"{desc.SourceFileName}:{desc.GameId}";
+                var right = $"{gs.SourceFileName}:{gs.GameId}";
+                if (!string.IsNullOrWhiteSpace(desc.GameId) && !string.IsNullOrWhiteSpace(gs.GameId))
+                {
+                    if (GuidsEqual(desc.GameId, gs.GameId))
+                        report.Checks.Add(new WorldDescBindingCheck("INFO", "GameId", left, right, "OK", "world_desc.GameId matches game_state.GameId."));
+                    else
+                        AddBindingIssue(report, isError: true, "GameId", left, right, "ERROR", "world_desc.GameId does not match game_state.GameId.");
+                }
+                else
+                {
+                    AddBindingIssue(report, isError: false, "GameId", left, right, "WARN", "Could not compare GameId because one side is blank.");
+                }
+
+                if (desc.TimePlayed.HasValue && gs.TimePlayed.HasValue)
+                {
+                    var delta = Math.Abs(desc.TimePlayed.Value - gs.TimePlayed.Value);
+                    var status = delta > 600 ? "WARN" : "OK";
+                    var note = $"TimePlayed delta={delta.ToString("0.###", CultureInfo.InvariantCulture)} seconds. This is usually not fatal, but large drift suggests world_desc was not updated by the game save path.";
+                    if (status == "WARN") AddBindingIssue(report, isError: false, "TimePlayed", desc.TimePlayed.Value.ToString(CultureInfo.InvariantCulture), gs.TimePlayed.Value.ToString(CultureInfo.InvariantCulture), status, note);
+                    else report.Checks.Add(new WorldDescBindingCheck("INFO", "TimePlayed", desc.TimePlayed.Value.ToString(CultureInfo.InvariantCulture), gs.TimePlayed.Value.ToString(CultureInfo.InvariantCulture), status, note));
+                }
+            }
+        }
+
+        foreach (var player in result.PlayerSaves)
+        {
+            if (string.IsNullOrWhiteSpace(player.WorldId)) continue;
+            foreach (var desc in result.WorldDescriptions)
+            {
+                if (string.IsNullOrWhiteSpace(desc.GameId)) continue;
+                if (GuidsEqual(player.WorldId, desc.GameId))
+                    report.Checks.Add(new WorldDescBindingCheck("INFO", "PlayerWorldId", $"{player.SourceFileName}:{player.WorldId}", $"{desc.SourceFileName}:{desc.GameId}", "OK", "player .char WorldId matches world_desc.GameId."));
+                else
+                    AddBindingIssue(report, isError: false, "PlayerWorldId", $"{player.SourceFileName}:{player.WorldId}", $"{desc.SourceFileName}:{desc.GameId}", "WARN", "player .char WorldId does not match world_desc.GameId. This may be normal for test files, but can break loading if the game expects matching world/player files.");
+            }
+        }
+
+        report.Passed = report.Errors.Count == 0;
+        return report;
+    }
+
+    private static void AddBindingIssue(WorldDescBindingReport report, bool isError, string check, string left, string right, string status, string note)
+    {
+        report.Checks.Add(new WorldDescBindingCheck(isError ? "ERROR" : "WARN", check, left, right, status, note));
+        if (isError) report.Errors.Add($"{check}: {note} ({left} / {right})");
+        else report.Warnings.Add($"{check}: {note} ({left} / {right})");
+    }
+
+    private static void WriteWorldDescBindingReport(string outputDir, WorldDescBindingReport report)
+    {
+        Directory.CreateDirectory(outputDir);
+        var jsonOptions = new JsonSerializerOptions { WriteIndented = true };
+        File.WriteAllText(Path.Combine(outputDir, "world_desc_binding_report.json"), JsonSerializer.Serialize(report, jsonOptions), Encoding.UTF8);
+        WriteCsv(Path.Combine(outputDir, "world_desc_binding_report.csv"), report.Checks,
+            ["Level", "Check", "Left", "Right", "Status", "Note"],
+            c => [c.Level, c.Check, c.Left, c.Right, c.Status, c.Note]);
+    }
+
+    private static WorldDescBindingReport? WriteWorldDescBindingReportForInput(string inputDir, string outputDir, string stage)
+    {
+        try
+        {
+            var result = InspectBindingRelevantInputFiles(inputDir);
+            var report = BuildWorldDescBindingReport(result, stage);
+            WriteWorldDescBindingReport(outputDir, report);
+            var citizenEntityReport = BuildCitizenEntityBindingReport(result);
+            WriteCitizenEntityBindingReport(outputDir, citizenEntityReport);
+            WriteCsv(Path.Combine(outputDir, "citizen_aura_runtime_report.csv"), result.GameStates.SelectMany(g => g.CitizenAuraRuntime),
+                ["SourceFile", "CitizenId", "Name", "EntityId", "SourceKind", "SourceKey", "Path", "MemberName", "MemberType", "Value", "Reason"],
+                h => [h.SourceFile, h.CitizenId, h.Name, h.EntityId, h.SourceKind, h.SourceKey, h.Path, h.MemberName, h.MemberType, h.Value, h.Reason]);
+            AppLogger.Info("world_desc/game_state 绑定校验报告：" + Path.Combine(outputDir, "world_desc_binding_report.json"));
+            AppLogger.Info("Citizen/Entity aura runtime 诊断报告：" + Path.Combine(outputDir, "citizen_entity_binding_report.json"));
+            return report;
+        }
+        catch (Exception ex)
+        {
+            AppLogger.Warn("world_desc/game_state 绑定校验报告生成失败：" + ex.Message);
+            return null;
+        }
+    }
+
+    private static FullInspectionResult InspectBindingRelevantInputFiles(string inputDir)
+    {
+        var result = new FullInspectionResult();
+        foreach (var file in GetInputFiles(inputDir))
+        {
+            var name = Path.GetFileName(file);
+            if (name.Equals(GameStateFileName, StringComparison.OrdinalIgnoreCase) ||
+                name.StartsWith(GameStateFileName + ".", StringComparison.OrdinalIgnoreCase) ||
+                name.Equals("world_desc", StringComparison.OrdinalIgnoreCase) ||
+                name.StartsWith("world_desc.", StringComparison.OrdinalIgnoreCase) ||
+                name.EndsWith(".char", StringComparison.OrdinalIgnoreCase))
+            {
+                InspectFile(file, new Options { Limit = 2000 }, result);
+            }
+        }
+
+        result.TotalFilesScanned = result.FilesScanned.Count;
+        result.TotalGameStates = result.GameStates.Count;
+        result.TotalWorldDescriptions = result.WorldDescriptions.Count;
+        result.TotalPlayerSaves = result.PlayerSaves.Count;
+        return result;
+    }
+
+    private static Guid? TryGetSingleWorldDescGameIdFromInput(string inputDir)
+    {
+        try
+        {
+            var descIds = new HashSet<Guid>();
+            foreach (var file in GetInputFiles(inputDir))
+            {
+                var name = Path.GetFileName(file);
+                if (!name.Equals("world_desc", StringComparison.OrdinalIgnoreCase) &&
+                    !name.StartsWith("world_desc.", StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                var bytes = File.ReadAllBytes(file);
+                if (!TryDeserializeWorldDescriptionWithFormat(bytes, out var desc, out _, out _) || desc == null)
+                    continue;
+
+                var gameIdText = NormalizeGuidString(ReadMember(desc, "GameId"));
+                if (Guid.TryParse(gameIdText, out var gameId) && gameId != Guid.Empty)
+                    descIds.Add(gameId);
+            }
+
+            if (descIds.Count == 1) return descIds.First();
+            if (descIds.Count > 1)
+                throw new InvalidOperationException("input 中存在多个不同的 world_desc.GameId，无法判断应绑定哪个世界。");
+        }
+        catch (Exception ex)
+        {
+            AppLogger.Warn("读取 world_desc.GameId 失败：" + ex.Message);
+        }
+
+        return null;
+    }
+
+    private static bool TrySetTopLevelGameStateGameId(object state, Guid gameId)
+    {
+        if (state is not IList list) return false;
+        for (var i = 0; i < list.Count; i++)
+        {
+            var entry = list[i];
+            if (entry == null) continue;
+            var t = entry.GetType();
+            var name = t.GetField("Item1")?.GetValue(entry)?.ToString()
+                       ?? t.GetProperty("Name")?.GetValue(entry)?.ToString();
+            if (!string.Equals(name, "GameId", StringComparison.OrdinalIgnoreCase)) continue;
+
+            if (t.IsValueType && t.IsGenericType && t.GetGenericTypeDefinition() == typeof(ValueTuple<,>))
+            {
+                list[i] = ("GameId", (object)gameId);
+                return true;
+            }
+
+            var field = t.GetField("Item2");
+            if (field != null)
+            {
+                field.SetValue(entry, gameId);
+                return true;
+            }
+
+            var prop = t.GetProperty("Value");
+            if (prop?.CanWrite == true)
+            {
+                prop.SetValue(entry, gameId);
+                return true;
+            }
+
+            return false;
+        }
+
+        return false;
+    }
+
+    private static bool GuidsEqual(string a, string b)
+    {
+        if (Guid.TryParse(a, out var ga) && Guid.TryParse(b, out var gb)) return ga == gb;
+        return string.Equals(a?.Trim(), b?.Trim(), StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string NormalizeGuidString(object? value)
+    {
+        if (value == null) return "";
+        if (value is Guid g) return g.ToString("D");
+        var text = value.ToString()?.Trim() ?? "";
+        return Guid.TryParse(text, out var parsed) ? parsed.ToString("D") : text;
+    }
+
+    private static string ToDisplayString(object? value)
+    {
+        if (value == null) return "";
+        if (value is DateTime dt) return dt.ToString("O", CultureInfo.InvariantCulture);
+        if (value is DateTimeOffset dto) return dto.ToString("O", CultureInfo.InvariantCulture);
+        return Convert.ToString(value, CultureInfo.InvariantCulture) ?? value.ToString() ?? "";
+    }
+
+    private static double? ToDoubleOrNull(object? value)
+    {
+        if (value == null) return null;
+        try
+        {
+            return value switch
+            {
+                double d => d,
+                float f => f,
+                int i => i,
+                long l => l,
+                uint u => u,
+                ulong ul => ul,
+                decimal m => (double)m,
+                _ when double.TryParse(Convert.ToString(value, CultureInfo.InvariantCulture), NumberStyles.Float, CultureInfo.InvariantCulture, out var parsed) => parsed,
+                _ => null
+            };
+        }
+        catch { return null; }
+    }
+
+    private static bool? ToBoolOrNull(object? value)
+    {
+        if (value == null) return null;
+        if (value is bool b) return b;
+        var text = value.ToString();
+        return bool.TryParse(text, out var parsed) ? parsed : null;
     }
 
     private static IEnumerable<PlayerSaveInfo> FilterPlayers(IEnumerable<PlayerSaveInfo> players, string? filter)
@@ -3615,9 +6036,11 @@ internal static class InspectorCore
     {
         public int TotalFilesScanned { get; set; }
         public int TotalGameStates { get; set; }
+        public int TotalWorldDescriptions { get; set; }
         public int TotalPlayerSaves { get; set; }
         public List<FileScanInfo> FilesScanned { get; set; } = new();
         public List<GameStateInspectionResult> GameStates { get; set; } = new();
+        public List<WorldDescriptionInfo> WorldDescriptions { get; set; } = new();
         public List<PlayerSaveInfo> PlayerSaves { get; set; } = new();
     }
 
@@ -3630,14 +6053,39 @@ internal static class InspectorCore
         public int TotalInventories { get; set; }
         public int? WorldItemCount { get; set; }
         public int TotalCitizens { get; set; }
+        public string GameId { get; set; } = "";
+        public double? TimePlayed { get; set; }
+        public string ConfigDescription { get; set; } = "";
         public List<StateEntryInfo> StateEntries { get; set; } = new();
         public List<CitizenInfo> Citizens { get; set; } = new();
         public List<CitizenJobInfo> CitizenJobs { get; set; } = new();
         public List<CitizenDebugInfo> CitizenDebug { get; set; } = new();
+        public List<CitizenEntityBindingInfo> CitizenEntityBindings { get; set; } = new();
+        public List<CitizenAuraRuntimeHitInfo> CitizenAuraRuntime { get; set; } = new();
         public List<ItemInstanceInfo> ItemInstances { get; set; } = new();
         public List<ItemTotalInfo> ItemTotals { get; set; } = new();
         public List<InventoryInfo> Inventories { get; set; } = new();
         public List<InventorySlotInfo> InventorySlots { get; set; } = new();
+    }
+
+    private sealed class WorldDescriptionInfo
+    {
+        public string SourceFile { get; set; } = "";
+        public string SourceFileName { get; set; } = "";
+        public string Name { get; set; } = "";
+        public string Created { get; set; } = "";
+        public string LastPlayed { get; set; } = "";
+        public string Tier { get; set; } = "";
+        public string Size { get; set; } = "";
+        public double? TimePlayed { get; set; }
+        public string FolderPath { get; set; } = "";
+        public string GameId { get; set; } = "";
+        public bool? Modded { get; set; }
+        public bool? Broken { get; set; }
+        public bool? LoadedFromBackup { get; set; }
+        public bool WasGzip { get; set; }
+        public string TypeName { get; set; } = "";
+        public string Note { get; set; } = "";
     }
 
     private sealed class PlayerSaveInfo
@@ -3658,6 +6106,25 @@ internal static class InspectorCore
         public List<PlayerSkillInfo> Skills { get; set; } = new();
     }
 
+    private sealed record CitizenTraitDeepDiffRow(string SourceFile, string CitizenId, string EntityId, string Name, string RequestedTraitIds, string BeforeTraitIds, string AfterTraitIds, string BeforeAuraObjects, string AfterAuraObjects);
+    private sealed record WorldWriteLabReportRow(string Directory, string Kind, string Note);
+    private sealed record SafeWorldPairReportRow(string Level, string Check, string Status, string Note);
+
+    private sealed class WorldDescBindingReport
+    {
+        public bool Passed { get; set; }
+        public string Stage { get; set; } = "inspection";
+        public int GameStateCount { get; set; }
+        public int WorldDescCount { get; set; }
+        public int PlayerSaveCount { get; set; }
+        public List<WorldDescBindingCheck> Checks { get; set; } = new();
+        public List<string> Errors { get; set; } = new();
+        public List<string> Warnings { get; set; } = new();
+        public string Note { get; set; } = "";
+    }
+
+    private sealed record WorldDescBindingCheck(string Level, string Check, string Left, string Right, string Status, string Note);
+
     private sealed record FileScanInfo(string Path, string FileName, long SizeBytes, bool DetectedGameState, bool DetectedPlayerSave, string Note);
     private sealed record StateEntryInfo(string SourceFile, string Name, string TypeName, int? Count, string Description);
     private sealed record ItemInstanceInfo(string SourceFile, string SourceKind, string OwnerName, string InstanceId, string BaseDataId, int StackCount, string InventoryId, int AuraCount, string AuraIds, bool HasUsableInfo, string TypeName);
@@ -3669,5 +6136,21 @@ internal static class InspectorCore
     private sealed record CitizenInfo(string SourceFile, string Kind, string CitizenId, string EntityId, string BaseEntityGuid, string Name, string CitizenBaseId, string Status, string CurrentJob, string CurrentJobLevel, string CurrentJobExperience, string Efficiency, string Expertise, string BaseEfficiency, string BaseExpertise, string Happiness, string FoodCost, string LoyaltyGain, string ExperienceGain, string Loyalty, string LoyaltyLevel, string CurrentHunger, string Personality, string Background, string HomeBuildingId, string CitizenSlotId, string CurrentWorldId, string SpawnWorldId, string PersonalQuestStatus, string JobCount, string TraitCount, string TraitIds, string AuraIds, string TypeName);
     private sealed record CitizenJobInfo(string SourceFile, string Kind, string CitizenId, string Name, string JobId, int Level, float Experience);
     private sealed record CitizenDebugInfo(string SourceFile, string EntryName, string EntryType, string EntryCount, string CandidateKey, string CandidateType, string LooksLikeCitizen, string HasName, string HasId, string HasJobExperience, string HasCitizenStats, string Members, string Note);
+    private sealed record CitizenEntityBindingInfo(string SourceFile, string CitizenId, string Name, string EntityId, string TraitIds, string AuraIds, bool EntityFound, string EntityKey, string EntityType, string EntitySummary, string EntityAuraHitCount, string ControllerFound, string ControllerKey, string ControllerType, string ControllerSummary, string ControllerAuraHitCount, string CitizenSlotFound, string CitizenSlotKey, string CitizenSlotType, string Notes);
+    private sealed record CitizenAuraRuntimeHitInfo(string SourceFile, string CitizenId, string Name, string EntityId, string SourceKind, string SourceKey, string Path, string MemberName, string MemberType, string Value, string Reason);
+    private sealed class CitizenEntityBindingReport
+    {
+        public bool Passed { get; set; }
+        public string Stage { get; set; } = "inspection";
+        public int GameStateCount { get; set; }
+        public int CitizenCount { get; set; }
+        public int EntityBindingCount { get; set; }
+        public int MissingEntityCount { get; set; }
+        public int CitizensWithNoRuntimeAuraHits { get; set; }
+        public List<CitizenEntityBindingInfo> Bindings { get; set; } = new();
+        public List<string> Errors { get; set; } = new();
+        public List<string> Warnings { get; set; } = new();
+        public string Note { get; set; } = "v72 diagnostic: validates Citizen.EntityId against Entities and records possible aura/trait/buff/debuff runtime mirrors in Entities/CitizenControllerStates/CitizenSlots. This report is diagnostic only; it does not prove the save will load in-game.";
+    }
     private sealed record PlayerItemTotalInfo(string SourceFile, string SaveFileName, string PlayerName, int PlayerId, string BaseDataId, int TotalStackCount, int Stacks);
 }

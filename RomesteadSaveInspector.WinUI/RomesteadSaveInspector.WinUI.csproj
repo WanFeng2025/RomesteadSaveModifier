@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
@@ -17,10 +17,10 @@
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <RuntimeIdentifiers>win-x64</RuntimeIdentifiers>
     <AssemblyName>RomesteadSaveInspector</AssemblyName>
-    <Version>1.1.30</Version>
-    <FileVersion>1.1.30.0</FileVersion>
-    <AssemblyVersion>1.1.30.0</AssemblyVersion>
-    <InformationalVersion>R1.1.32</InformationalVersion>
+    <Version>1.1.37</Version>
+    <FileVersion>1.1.37.0</FileVersion>
+    <AssemblyVersion>1.1.37.0</AssemblyVersion>
+    <InformationalVersion>R1.1.66</InformationalVersion>
     <PublishSingleFile>true</PublishSingleFile>
     <SelfContained>true</SelfContained>
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>

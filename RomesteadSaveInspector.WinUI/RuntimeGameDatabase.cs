@@ -82,6 +82,7 @@ public static class RuntimeGameDatabase
             if (items != null)
             {
                 ItemRecords.AddRange(items.Where(i => !string.IsNullOrWhiteSpace(i.Id)));
+                PatchKnownOfficialItems(ItemRecords);
             }
         }
 
@@ -149,8 +150,9 @@ public static class RuntimeGameDatabase
 
     private static void WriteItemDatabase()
     {
+        PatchKnownOfficialItems(ItemRecords);
         Directory.CreateDirectory(DataDirectory);
-        File.WriteAllText(ItemDatabasePath, JsonSerializer.Serialize(ItemRecords, JsonOptions), Encoding.UTF8);
+        File.WriteAllText(ItemDatabasePath, JsonSerializer.Serialize(ItemRecords.OrderBy(i => i.Id, StringComparer.OrdinalIgnoreCase).ToList(), JsonOptions), Encoding.UTF8);
     }
 
     private static void WriteGameTextDatabase()
@@ -238,7 +240,6 @@ public static class RuntimeGameDatabase
                 var descKey = ReadMemberTextId(item, "Description");
                 var prefix = id.Contains(':') ? id.Split(':')[0] : id;
                 var gameMax = ReadMemberInt(item, "MaxStackSize", 1);
-                var category = BuildCategory(prefix);
                 var equipment = ReadMemberObject(item, "Equippable");
                 var usable = ReadMemberObject(item, "Usable");
                 var tradable = ReadMemberObject(item, "Tradable");
@@ -247,6 +248,8 @@ public static class RuntimeGameDatabase
                 var citizenConsumable = ReadMemberObject(item, "CitizenConsumable");
                 var fuel = ReadMemberObject(item, "Fuel");
                 var editorMax = ShouldForceOne(prefix, id) ? 1 : Math.Max(1, gameMax);
+                var equipmentType = ReadMemberString(equipment, "EquipmentType");
+                var category = BuildCategory(prefix, equipmentType);
 
                 string Localize(string? key, string lang, params string[] alternatives)
                 {
@@ -290,7 +293,7 @@ public static class RuntimeGameDatabase
                     CategoryZhHant = category.zhHant,
                     Prefix = prefix,
                     Flags = ReadMemberString(item, "Flags"),
-                    EquipmentType = ReadMemberString(equipment, "Type"),
+                    EquipmentType = equipmentType,
                     EquipmentMaterial = ReadMemberString(equipment, "Material"),
                     SpellId = ReadMemberString(usable, "SpellId"),
                     ConstructionId = ReadMemberString(usable, "ConstructionId"),
@@ -420,8 +423,30 @@ public static class RuntimeGameDatabase
         };
     }
 
-    private static (string en, string zhHans, string zhHant) BuildCategory(string prefix)
+    private static void PatchKnownOfficialItems(List<RomesteadItemRecord> items)
     {
+        var existing = new HashSet<string>(items.Select(i => i.Id), StringComparer.OrdinalIgnoreCase);
+        void Add(RomesteadItemRecord r)
+        {
+            if (!existing.Contains(r.Id))
+            {
+                items.Add(r);
+                existing.Add(r.Id);
+            }
+        }
+
+        Add(new RomesteadItemRecord { Id = "trinket:phoenix_feather", Name = "Phoenix Feather", NameEn = "Phoenix Feather", NameZhHans = "凤凰羽毛", NameZhHant = "鳳凰羽毛", Description = "The appearance of the Giant Phoenix marks the end of a Great Year. Its appearance here is nothing but symbolic for the times ahead.", DescriptionEn = "The appearance of the Giant Phoenix marks the end of a Great Year. Its appearance here is nothing but symbolic for the times ahead.", DescriptionZhHans = "巨型凤凰的出现标志着一个大年的终结。它在此现身，只是未来时代的象征。", DescriptionZhHant = "巨型鳳凰的出現標誌著一個大年的終結。它在此現身，只是未來時代的象徵。", Icon = "phoenix_feather", Category = "Trinket", CategoryEn = "Trinket", CategoryZhHans = "饰品", CategoryZhHant = "飾品", Prefix = "trinket", Flags = "", EquipmentType = "Trinket", EquipmentMaterial = "", SpellId = "", ConstructionId = "", Safety = "EquipmentNeedsStats", SafetyZhHans = "装备需属性初始化", SafetyZhHant = "裝備需屬性初始化", Source = "ItemData/ItemIds patch", GameMaxStackSize = 1, EditorMaxStackSize = 1, SourceLine = 6067, Tier = 4, Price = 5000, Unique = false, HasEquippable = true, HasUsable = false, HasTradable = true, HasRandomlyGenerated = false, HasLightSource = false, HasCitizenConsumable = false, HasFuel = false });
+        Add(new RomesteadItemRecord { Id = "trinket:pyzifax", Name = "Cape of Pyzifax Banner", NameEn = "Cape of Pyzifax Banner", NameZhHans = "皮兹法克斯战旗披风", NameZhHant = "皮茲法克斯戰旗披風", Description = "Pyzifax the Conqueror rose as a threat before the fall of Rome. Even then, he was a force to be reckoned with.", DescriptionEn = "Pyzifax the Conqueror rose as a threat before the fall of Rome. Even then, he was a force to be reckoned with.", DescriptionZhHans = "征服者皮兹法克斯在罗马陷落之前便已崛起为威胁。即便在那时，他也已经是不容小觑的存在。", DescriptionZhHant = "征服者皮茲法克斯在羅馬陷落之前便已崛起為威脅。即便在那時，他也已經是不容小覷的存在。", Icon = "pyzifax_cape", Category = "Back", CategoryEn = "Back", CategoryZhHans = "背部装备", CategoryZhHant = "背部裝備", Prefix = "trinket", Flags = "", EquipmentType = "Back", EquipmentMaterial = "", SpellId = "", ConstructionId = "", Safety = "EquipmentNeedsStats", SafetyZhHans = "装备需属性初始化", SafetyZhHant = "裝備需屬性初始化", Source = "ItemData/ItemIds patch", GameMaxStackSize = 1, EditorMaxStackSize = 1, SourceLine = 6091, Tier = 4, Price = 600, Unique = false, HasEquippable = true, HasUsable = false, HasTradable = true, HasRandomlyGenerated = false, HasLightSource = false, HasCitizenConsumable = false, HasFuel = false });
+        Add(new RomesteadItemRecord { Id = "trinket:barkback", Name = "Bark-back", NameEn = "Bark-back", NameZhHans = "树皮背披", NameZhHant = "樹皮背披", Icon = "bark_back", Category = "Back", CategoryEn = "Back", CategoryZhHans = "背部装备", CategoryZhHant = "背部裝備", Prefix = "trinket", Safety = "EquipmentNeedsStats", SafetyZhHans = "装备需属性初始化", SafetyZhHant = "裝備需屬性初始化", Source = "ItemData/ItemIds patch", GameMaxStackSize = 1, EditorMaxStackSize = 1, SourceLine = 6116, Tier = 2, Price = 250, HasEquippable = true, HasTradable = true, EquipmentType = "Back" });
+        Add(new RomesteadItemRecord { Id = "trinket:fallen_Cape", Name = "Cape of the Fallen", NameEn = "Cape of the Fallen", NameZhHans = "亡灵披风", NameZhHant = "亡靈披風", Description = "Fashioned with their remains, the cloak carries the Fallen's natural resistance against unholy magic.", DescriptionEn = "Fashioned with their remains, the cloak carries the Fallen's natural resistance against unholy magic.", DescriptionZhHans = "以亡灵残骸制成的披风，保留着它们对邪秽魔法的天然抗性。", DescriptionZhHant = "以亡靈殘骸製成的披風，保留著它們對邪穢魔法的天然抗性。", Icon = "fallen_cape", Category = "Back", CategoryEn = "Back", CategoryZhHans = "背部装备", CategoryZhHant = "背部裝備", Prefix = "trinket", Safety = "EquipmentNeedsStats", SafetyZhHans = "装备需属性初始化", SafetyZhHant = "裝備需屬性初始化", Source = "ItemData/ItemIds patch", GameMaxStackSize = 1, EditorMaxStackSize = 1, SourceLine = 6156, Tier = 2, Price = 250, HasEquippable = true, HasTradable = true, EquipmentType = "Back" });
+        Add(new RomesteadItemRecord { Id = "trinket:bedouin_cloak", Name = "Bedouin Cloak", NameEn = "Bedouin Cloak", NameZhHans = "贝都因斗篷", NameZhHant = "貝都因斗篷", Description = "Bedouins are dwellers of the great deserts, and their cloaks prove to serve them well during the blazing sun.", DescriptionEn = "Bedouins are dwellers of the great deserts, and their cloaks prove to serve them well during the blazing sun.", DescriptionZhHans = "贝都因人居于辽阔沙漠，他们的斗篷足以证明其在烈日下的实用价值。", DescriptionZhHant = "貝都因人居於遼闊沙漠，他們的斗篷足以證明其在烈日下的實用價值。", Icon = "bedouin_cloak", Category = "Back", CategoryEn = "Back", CategoryZhHans = "背部装备", CategoryZhHant = "背部裝備", Prefix = "trinket", Safety = "EquipmentNeedsStats", SafetyZhHans = "装备需属性初始化", SafetyZhHant = "裝備需屬性初始化", Source = "ItemData/ItemIds patch", GameMaxStackSize = 1, EditorMaxStackSize = 1, SourceLine = 6188, Tier = 2, Price = null, HasEquippable = true, HasTradable = false, EquipmentType = "Back" });
+        Add(new RomesteadItemRecord { Id = "placeable:beehive", Name = "Beehive", NameEn = "Beehive", NameZhHans = "蜂箱", NameZhHant = "蜂箱", Description = "A structure that produces honey at a steady pace.", DescriptionEn = "A structure that produces honey at a steady pace.", DescriptionZhHans = "一种能够稳定产出蜂蜜的建筑。", DescriptionZhHant = "一種能夠穩定產出蜂蜜的建築。", Icon = "item:beehive", Category = "Placeable", CategoryEn = "Placeable", CategoryZhHans = "可放置物", CategoryZhHant = "可放置物", Prefix = "placeable", SpellId = "spell:place-construction", ConstructionId = "beehive:0", Safety = "AdvancedOrRisky", SafetyZhHans = "高级/风险", SafetyZhHant = "進階/風險", Source = "ItemData/ItemIds patch", GameMaxStackSize = 20, EditorMaxStackSize = 20, SourceLine = 10460, Tier = 1, Price = 250, HasUsable = true, HasTradable = true });
+    }
+
+    private static (string en, string zhHans, string zhHant) BuildCategory(string prefix, string? equipmentType = null)
+    {
+        if (string.Equals(equipmentType, "Back", StringComparison.OrdinalIgnoreCase)) return ("Back", "背部装备", "背部裝備");
+        if (string.Equals(equipmentType, "Trinket", StringComparison.OrdinalIgnoreCase)) return ("Trinket", "饰品", "飾品");
         return prefix switch
         {
             "ammo" => ("Ammo", "弹药", "彈藥"),
